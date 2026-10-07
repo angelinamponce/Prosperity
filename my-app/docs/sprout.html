@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prosperity + Sprout (mockup)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Jost:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#f5f6f2;--card:#fff;--ink:#14231a;--mute:#56645b;--g1:#3f7a52;--g2:#2d5a3d;--tint:#e4efe6;--line:#e3e7e0;--sun:#f6d36b;--shadow:0 8px 28px rgba(30,60,40,.10);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101a14;--card:#182419;--ink:#eef3ec;--mute:#a4b3a8;--g1:#6fb386;--g2:#4f9468;--tint:#213628;--line:#27382c;--shadow:0 8px 28px rgba(0,0,0,.35)}}
+:root[data-theme="dark"]{--bg:#101a14;--card:#182419;--ink:#eef3ec;--mute:#a4b3a8;--g1:#6fb386;--g2:#4f9468;--tint:#213628;--line:#27382c;--shadow:0 8px 28px rgba(0,0,0,.35)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Jost',system-ui,sans-serif;font-size:17px;line-height:1.55}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+h1,h2,h3{font-family:'DM Serif Display',Georgia,serif;font-weight:400;line-height:1.08;margin:0}
+nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
+.logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:19px}
+.logo i{width:34px;height:34px;border-radius:10px;background:var(--g1);display:grid;place-items:center;color:#fff;font-style:normal}
+.btn{border:0;border-radius:999px;padding:13px 24px;font:500 16px 'Jost',sans-serif;cursor:pointer;background:var(--g1);color:#fff;box-shadow:0 6px 16px rgba(63,122,82,.28)}
+.btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);box-shadow:none}
+button:focus-visible,input:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.hero{display:grid;grid-template-columns:1.05fr 1fr;gap:40px;align-items:center;padding:34px 0 60px}
+.hero h1{font-size:clamp(40px,6vw,66px)}
+.hero h1 em{color:var(--g1)}
+.hero p.lead{color:var(--mute);font-size:19px;max-width:30em}
+.greet{display:flex;align-items:center;gap:12px;margin:0 0 26px}
+.bubble{background:var(--card);border:1px solid var(--line);border-radius:18px 18px 18px 4px;padding:12px 16px;box-shadow:var(--shadow);max-width:340px;font-size:16px}
+.bubble b{color:var(--g1)}
+.mascot{width:92px;height:120px;flex:none;overflow:visible}
+.arm{transform-box:view-box;transform-origin:31px 90px}
+@media (prefers-reduced-motion:no-preference){.arm.wave{animation:armwave 1.8s .5s 1 ease-in-out}}
+@keyframes armwave{0%,100%{transform:rotate(0)}15%{transform:rotate(-16deg)}35%{transform:rotate(10deg)}55%{transform:rotate(-14deg)}75%{transform:rotate(8deg)}}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 4px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:9px 16px;font:500 15px 'Jost',sans-serif;cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+.chip:hover{border-color:var(--g1);background:var(--tint)}
+.reassure{color:var(--mute);font-size:15px;margin-top:14px}
+.card{background:var(--card);border-radius:24px;padding:26px;box-shadow:var(--shadow);border:1px solid var(--line)}
+.card .lab{color:var(--mute);font-size:15px}
+.big{font-family:'DM Serif Display',Georgia,serif;font-size:46px;line-height:1.1;margin:2px 0 4px}
+.save{display:inline-block;background:var(--tint);color:var(--g2);border-radius:999px;padding:4px 12px;font-weight:600;font-size:15px}
+.save[hidden]{display:none}
+input[type=range]{width:100%;accent-color:var(--g1);margin:10px 0 2px}
+.row{display:flex;justify-content:space-between;align-items:baseline}
+.amt{font-weight:600;font-size:22px}
+.note{color:var(--mute);font-size:14px;margin-top:10px}
+section{padding:46px 0}
+section h2{font-size:clamp(30px,4vw,42px);margin-bottom:10px}
+.sub{color:var(--mute);max-width:34em;margin:0 0 28px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.feat{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:22px;display:flex;flex-direction:column;gap:10px}
+.feat h3{font-size:24px}
+.feat p{margin:0;color:var(--mute)}
+.feat .chip{align-self:flex-start;margin-top:auto}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:s}
+.step{background:var(--tint);border-radius:22px;padding:22px}
+.step::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--g1);color:#fff;font-weight:600;margin-bottom:12px}
+.step h3{font-size:22px;margin-bottom:6px}
+.step p{margin:0;color:var(--mute)}
+.note-card{display:flex;gap:20px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:24px;padding:26px;box-shadow:var(--shadow)}
+.note-card p{margin:0}
+footer{padding:30px 0 120px;color:var(--mute);font-size:14px;text-align:center}
+/* chat */
+#fab{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));width:64px;height:64px;border-radius:50%;border:0;background:var(--card);box-shadow:var(--shadow),0 0 0 3px var(--g1);cursor:pointer;padding:4px;z-index:20}
+#panel{position:fixed;right:20px;bottom:calc(100px + env(safe-area-inset-bottom,0px));width:min(380px,calc(100vw - 32px));height:min(540px,calc(100% - 140px));background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:0 16px 48px rgba(20,40,28,.22);display:none;flex-direction:column;overflow:hidden;z-index:21}
+#panel.open{display:flex}
+.ph{display:flex;gap:10px;align-items:center;padding:14px 16px;background:var(--g1);color:#fff}
+.ph svg{width:38px;height:38px;background:#fff;border-radius:50%;padding:2px}
+.ph b{display:block;font-size:17px}
+.ph small{opacity:.9;font-size:13px;line-height:1.2;display:block}
+.ph button{margin-left:auto;background:none;border:0;color:#fff;font-size:24px;cursor:pointer;line-height:1}
+#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.m{max-width:86%;padding:10px 14px;border-radius:16px;font-size:15.5px;line-height:1.45}
+.m.bot{background:var(--tint);border-bottom-left-radius:4px;align-self:flex-start}
+.m.me{background:var(--g1);color:#fff;border-bottom-right-radius:4px;align-self:flex-end}
+.m small{display:block;color:var(--mute);margin-top:6px;font-size:12.5px}
+.dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mute);margin-right:3px;animation:b 1s infinite}
+.dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+@keyframes b{50%{transform:translateY(-4px)}}
+.pc{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 10px}
+.pc .chip{font-size:13.5px;padding:7px 12px}
+.pi{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.pi input{flex:1;border:1px solid var(--line);border-radius:999px;padding:10px 14px;font:16px 'Jost',sans-serif;background:var(--bg);color:var(--ink)}
+.pi .btn{padding:10px 16px;box-shadow:none}
+.disc{font-size:12px;color:var(--mute);text-align:center;padding:0 14px 10px}
+@media (max-width:820px){.hero,.grid,.steps{grid-template-columns:1fr}.hero{padding-top:10px}nav .nl{display:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="bot" viewBox="0 0 100 130">
+<rect x="33" y="104" width="14" height="18" rx="6" fill="#6fb67c" stroke="#2f6b3f" stroke-width="2.5"/>
+<rect x="53" y="104" width="14" height="18" rx="6" fill="#6fb67c" stroke="#2f6b3f" stroke-width="2.5"/>
+<g fill="none" stroke-linecap="round"><path d="M70 90 Q81 95 79 107" stroke="#2f6b3f" stroke-width="11"/><path d="M70 90 Q81 95 79 107" stroke="#6fb67c" stroke-width="7"/></g>
+<rect x="28" y="76" width="44" height="34" rx="13" fill="#6fb67c" stroke="#2f6b3f" stroke-width="2.5"/>
+<rect x="34" y="82" width="32" height="22" rx="10" fill="#a9d8b3" stroke="#4a8f5b" stroke-width="1.5"/>
+<rect x="17" y="24" width="66" height="54" rx="17" fill="#6fb67c" stroke="#2f6b3f" stroke-width="3"/>
+<rect x="24" y="31" width="52" height="40" rx="11" fill="#f4faf2" stroke="#2f6b3f" stroke-width="2.5"/>
+<circle cx="40.5" cy="48" r="3.8" fill="#1e3a28"/><circle cx="59.5" cy="48" r="3.8" fill="#1e3a28"/>
+<circle cx="41.8" cy="46.6" r="1.2" fill="#fff"/><circle cx="60.8" cy="46.6" r="1.2" fill="#fff"/>
+<path d="M43 57 Q50 67 57 57 Z" fill="#e8707f" stroke="#2f6b3f" stroke-width="1.8" stroke-linejoin="round"/>
+<path d="M50 24 L50 14" stroke="#2f6b3f" stroke-width="3" stroke-linecap="round"/>
+<path d="M50 15 C44 3 30 3 24 9 C30 19 43 20 50 15Z" fill="#7cc589" stroke="#2f6b3f" stroke-width="2.5" stroke-linejoin="round"/>
+<path d="M50 15 C56 1 72 1 78 7 C72 18 57 20 50 15Z" fill="#94d49f" stroke="#2f6b3f" stroke-width="2.5" stroke-linejoin="round"/>
+</symbol>
+<symbol id="armUp" viewBox="0 0 100 130"><g fill="none" stroke-linecap="round"><path d="M31 90 Q15 88 13 70" stroke="#2f6b3f" stroke-width="11"/><path d="M31 90 Q15 88 13 70" stroke="#6fb67c" stroke-width="7"/></g></symbol></defs></svg>
+
+<div class="wrap">
+<nav><div class="logo"><i>&#127793;</i>Prosperity</div><div class="nl"><a style="margin-right:22px">Features</a><a style="margin-right:22px">How it works</a><a>About</a></div><button class="btn">Build my plan</button></nav>
+
+<div class="hero">
+<div>
+<div class="greet">
+<svg class="mascot" viewBox="0 0 100 130" role="img" aria-label="Sprout the AI guide"><use href="#bot" width="100" height="130"/><g class="arm wave"><use href="#armUp" width="100" height="130"/></g></svg>
+<div class="bubble"><b>Hi, I'm Sprout!</b> I'm an AI guide. Ask me anything about your money, or try the slider.</div>
+</div>
+<h1>Your money, <em>finally clear.</em></h1>
+<p class="lead">Answer five short pages and Prosperity turns your numbers into a plan. Sprout explains every step in plain English.</p>
+<div class="chips" id="heroChips">
+<button class="chip" data-q="extra200">&#128172; What would an extra $200 do?</button>
+<button class="chip" data-q="start">&#128172; Where should I start?</button>
+<button class="chip" data-q="safe">&#128172; Is this safe?</button>
+</div>
+<p class="reassure">No bank login. No judgment. You can change any answer later.</p>
+</div>
+
+<div class="card" aria-live="polite">
+<div class="row"><span class="lab">You'd be debt-free by</span><span class="save" id="saveTag" hidden></span></div>
+<div class="big" id="date">Nov 2032</div>
+<div class="note" id="months"></div>
+<div style="margin-top:22px" class="row"><span>Extra payment each month</span><span class="amt" id="amt">$0</span></div>
+<input id="slider" type="range" min="0" max="1000" step="25" value="0" aria-label="Extra payment each month">
+<div class="row note"><span>$0</span><span>$1,000</span></div>
+<div class="note">Sample numbers: $26,000 balance, 8% interest. Drag the slider.</div>
+</div>
+</div>
+
+<section>
+<h2>Questions people actually ask</h2>
+<p class="sub">Pick one and Sprout shows the numbers behind the answer.</p>
+<div class="grid">
+<div class="feat"><h3>Where does my money go?</h3><p>Your paycheck, each spending category, and what's left over, in one picture.</p><button class="chip" data-q="where">Ask Sprout</button></div>
+<div class="feat"><h3>When will I be debt-free?</h3><p>Compare payoff plans and watch the date change as you adjust.</p><button class="chip" data-q="extra200">Ask Sprout</button></div>
+<div class="feat"><h3>What should I do first?</h3><p>Steps ranked by impact, each one showing the math.</p><button class="chip" data-q="start">Ask Sprout</button></div>
+</div>
+</section>
+
+<section>
+<h2>From numbers to a plan in three steps</h2>
+<p class="sub">About five minutes, and no bank connection needed.</p>
+<div class="steps">
+<div class="step"><h3>Tell us about your money</h3><p>Income, spending, savings and debts.</p></div>
+<div class="step"><h3>We do the math</h3><p>Cash flow, payoff dates and a long-term outlook.</p></div>
+<div class="step"><h3>Follow your plan</h3><p>Ranked next steps, with Sprout there to explain each one.</p></div>
+</div>
+</section>
+
+<section>
+<div class="note-card">
+<svg class="mascot" viewBox="0 0 100 130" role="img" aria-label="Sprout the AI guide"><use href="#bot" width="100" height="130"/><g class="arm"><use href="#armUp" width="100" height="130"/></g></svg>
+<p><b>A note from the team.</b> Most money advice is generic, so we built something that starts from your numbers. Sprout is an AI guide, not a licensed advisor, and it always shows where its numbers come from. For big decisions, we'll point you to a human.</p>
+</div>
+</section>
+<footer>&copy; 2025 Prosperity. Built at HackMIT. This page is a design mockup with scripted replies.</footer>
+</div>
+
+<button id="fab" aria-label="Chat with Sprout" aria-expanded="false"><svg viewBox="12 1 76 76" width="100%" height="100%"><use href="#bot" width="100" height="130"/></svg></button>
+<div id="panel" role="dialog" aria-label="Chat with Sprout">
+<div class="ph"><svg viewBox="12 1 76 76"><use href="#bot" width="100" height="130"/></svg><div><b>Sprout</b><small>AI guide, not a licensed advisor</small></div><button id="close" aria-label="Close chat">&times;</button></div>
+<div id="msgs"></div>
+<div class="pc" id="pc"></div>
+<div class="pi"><input id="inp" placeholder="Ask about your money..." aria-label="Message Sprout"><button class="btn" id="send">Send</button></div>
+<div class="disc">Mockup: replies are scripted. In the real product, Sprout would pull numbers from your plan.</div>
+</div>
+
+<script>
+(function(){
+var B=26000,R=0.08/12,MIN=430,START=new Date(2026,9,1);
+function calc(x){var P=MIN+x,n=Math.ceil(-Math.log(1-R*B/P)/Math.log(1+R));return{n:n,int:Math.round(P*n-B)}}
+var base=calc(0);
+function fmt(n){var d=new Date(START.getFullYear(),START.getMonth()+n,1);return d.toLocaleString('en-US',{month:'short',year:'numeric'})}
+function money(v){return '$'+Math.round(v).toLocaleString('en-US')}
+var sl=document.getElementById('slider');
+function upd(){var x=+sl.value,c=calc(x),s=base.int-c.int,m=base.n-c.n;
+document.getElementById('amt').textContent=money(x);
+document.getElementById('date').textContent=fmt(c.n);
+document.getElementById('months').textContent=m>0?m+' months sooner than minimums only':'With minimum payments only';
+var t=document.getElementById('saveTag');if(s>0){t.hidden=false;t.textContent='Save '+money(s)}else t.hidden=true}
+sl.addEventListener('input',upd);upd();
+var panel=document.getElementById('panel'),fab=document.getElementById('fab'),msgs=document.getElementById('msgs'),pc=document.getElementById('pc'),inp=document.getElementById('inp'),opened=false;
+var chipsList=[['extra200','What would an extra $200 do?'],['start','Where should I start?'],['safe','Is this safe?'],['where','Where does my money go?']];
+function add(t,who,extra){var d=document.createElement('div');d.className='m '+who;d.textContent=t;if(extra){var s=document.createElement('small');s.textContent=extra;d.appendChild(s)}msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d}
+function answer(k){
+if(k==='extra200'){sl.value=200;upd();var c=calc(200),m=base.n-c.n,s=base.int-c.int;
+return['An extra $200 a month gets you debt-free by '+fmt(c.n)+', about '+m+' months sooner, and saves roughly '+money(s)+' in interest.','Based on the sample numbers in the slider: $26,000 at 8%, $430 minimum payment.']}
+if(k==='start')return['Nice news first: you contribute 3% but your employer matches up to 5%. Raising yours to 5% captures about $1,560 a year of free money.','This is step 1 in your sample plan, ranked by impact.'];
+if(k==='safe')return['Prosperity never asks for a bank login, and you can change or delete any answer later. I\u2019m an AI guide, not a licensed advisor, so for big choices like taxes or retirement accounts I\u2019ll point you to a human.',null];
+if(k==='where')return['I\u2019d show your paycheck split into bills, flexible spending, savings and what\u2019s left over. In the real product this draws from the numbers you enter.',null];
+return['Good question! In this mockup I only know a few topics. Try one of the suggestions below. In the real product I\u2019d answer from your own plan.',null]}
+function ask(k,label){open();add(label,'me');var d=add('','bot');d.innerHTML='<span class="dots"><span></span><span></span><span></span></span>';
+setTimeout(function(){var a=answer(k);d.textContent=a[0];if(a[1]){var s=document.createElement('small');s.textContent=a[1];d.appendChild(s)}msgs.scrollTop=msgs.scrollHeight},650)}
+function open(){if(!opened){opened=true;add('Hi, I\u2019m Sprout! I\u2019m an AI guide who explains your numbers in plain English. What would you like to know?','bot');
+chipsList.forEach(function(c){var b=document.createElement('button');b.className='chip';b.textContent=c[1];b.onclick=function(){ask(c[0],c[1])};pc.appendChild(b)})}
+panel.classList.add('open');fab.setAttribute('aria-expanded','true')}
+function close(){panel.classList.remove('open');fab.setAttribute('aria-expanded','false')}
+fab.onclick=function(){panel.classList.contains('open')?close():open()};
+document.getElementById('close').onclick=close;
+document.querySelectorAll('[data-q]').forEach(function(b){b.addEventListener('click',function(){ask(b.dataset.q,b.textContent.replace('\uD83D\uDCAC','').trim()==='Ask Sprout'?b.parentNode.querySelector('h3').textContent:b.textContent.replace('\uD83D\uDCAC','').trim())})});
+function send(){var v=inp.value.trim();if(!v)return;inp.value='';ask('other',v)}
+document.getElementById('send').onclick=send;
+inp.addEventListener('keydown',function(e){if(e.key==='Enter')send()});
+})();
+</script>
+</body>
+</html>

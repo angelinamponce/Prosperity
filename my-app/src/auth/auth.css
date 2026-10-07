@@ -1,0 +1,107 @@
+/* Login and sign-up layout. Tokens and components come from src/design. */
+
+.au { display: grid; grid-template-columns: minmax(360px, 0.9fr) minmax(0, 1.1fr); min-height: 100vh; }
+
+/* ---------- Brand panel ---------- */
+.au-side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--ps-space-8) var(--ps-space-10);
+  color: #fff;
+  background:
+    radial-gradient(90% 60% at 100% 0%, rgba(150, 199, 166, 0.22) 0%, transparent 60%),
+    radial-gradient(70% 50% at 0% 100%, rgba(95, 169, 122, 0.18) 0%, transparent 60%),
+    var(--ps-brand-900);
+  overflow: hidden;
+}
+:where(.ps-root) .au-logo { display: inline-flex; align-items: center; gap: 10px; font-size: var(--ps-text-lg); font-weight: 600; letter-spacing: -0.02em; color: inherit; }
+.au-side .au-logo { color: #fff; }
+.au-side__body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: var(--ps-space-8); max-width: 440px; }
+.au-side__title { font-family: var(--ps-font-display); font-size: clamp(2rem, 2.8vw, 2.75rem); font-weight: 400; letter-spacing: -0.01em; line-height: 1.1; }
+.au-side__lede { margin-top: var(--ps-space-3); font-size: var(--ps-text-lg); color: rgba(255, 255, 255, 0.72); }
+.au-side__foot { font-size: var(--ps-text-xs); color: rgba(255, 255, 255, 0.5); }
+
+/* Frosted card on the dark panel */
+.au-glass {
+  padding: var(--ps-space-5);
+  border-radius: var(--ps-radius-lg);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.au-glass__label { font-size: var(--ps-text-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6); }
+.au-glass__value { margin-top: 4px; font-size: var(--ps-text-2xl); font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.au-glass__row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--ps-space-3); padding: 10px 0; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: var(--ps-text-sm); }
+.au-glass__row:first-of-type { border-top: 0; }
+.au-glass__row span:first-child { color: rgba(255, 255, 255, 0.72); }
+.au-glass__row span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+.au-glass__empty { font-size: var(--ps-text-sm); color: rgba(255, 255, 255, 0.6); }
+.au-tasks { list-style: none; margin: var(--ps-space-4) 0 0; padding: 0; display: grid; gap: var(--ps-space-2); }
+.au-tasks li { display: flex; align-items: center; gap: var(--ps-space-3); font-size: var(--ps-text-sm); color: rgba(255, 255, 255, 0.86); }
+.au-tasks .anticon { color: var(--ps-brand-300); }
+
+/* Step checklist (sign-up) */
+.au-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.au-steps li { position: relative; display: flex; align-items: center; gap: var(--ps-space-3); padding: 8px 0; color: rgba(255, 255, 255, 0.55); font-weight: 500; transition: color var(--ps-med) var(--ps-ease); }
+.au-steps li.is-current { color: #fff; }
+.au-steps li.is-done { color: rgba(255, 255, 255, 0.82); }
+.au-steps__dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  transition: background var(--ps-med) var(--ps-ease), border-color var(--ps-med) var(--ps-ease), color var(--ps-med) var(--ps-ease);
+}
+.au-steps li.is-current .au-steps__dot { border-color: #fff; background: #fff; color: var(--ps-brand-800); box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.12); }
+.au-steps li.is-done .au-steps__dot { border-color: var(--ps-brand-400); background: var(--ps-brand-400); color: var(--ps-brand-900); }
+
+/* ---------- Form side ---------- */
+.au-main { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--ps-space-10) var(--ps-space-6); }
+.au-logo--mobile { display: none; }
+.au-panel { width: 100%; max-width: 420px; animation: ps-enter 500ms var(--ps-ease) both; }
+.au-panel--wide { max-width: 480px; }
+.au-head { margin-bottom: var(--ps-space-8); }
+.au-head .ps-body { margin-top: var(--ps-space-2); }
+.au-switch { margin-top: var(--ps-space-6); text-align: center; font-size: var(--ps-text-sm); color: var(--ps-ink-3); }
+.au-switch a { font-weight: 500; }
+
+/* Password strength */
+.au-strength { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+.au-strength span { height: 4px; border-radius: 2px; background: var(--ps-border); transition: background var(--ps-med) var(--ps-ease); }
+.au-strength-label { margin-top: 6px; font-size: var(--ps-text-xs); color: var(--ps-ink-3); }
+
+/* Sign-up progress */
+.au-progress { margin-bottom: var(--ps-space-8); }
+.au-progress__meta { display: flex; justify-content: space-between; font-size: var(--ps-text-sm); color: var(--ps-ink-3); margin-bottom: var(--ps-space-2); }
+.au-progress__meta strong { color: var(--ps-ink); font-weight: 600; }
+.au-progress__track { height: 6px; border-radius: var(--ps-radius-full); background: var(--ps-border); overflow: hidden; }
+.au-progress__fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--ps-brand-400), var(--ps-brand-600)); transition: width 600ms var(--ps-ease); }
+.au-step-swap { animation: au-slide 380ms var(--ps-ease) both; }
+.au-step-swap.is-back { animation-name: au-slide-back; }
+@keyframes au-slide { from { opacity: 0; transform: translateX(24px); } }
+@keyframes au-slide-back { from { opacity: 0; transform: translateX(-24px); } }
+.au-actions { display: flex; gap: var(--ps-space-3); margin-top: var(--ps-space-2); }
+.au-actions > :last-child { flex: 1; }
+.au-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--ps-space-4); }
+.au-mobile-snapshot { display: none; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 960px) {
+  .au { grid-template-columns: minmax(0, 1fr); }
+  .au-side { display: none; }
+  .au-main { justify-content: flex-start; padding: var(--ps-space-6) var(--ps-space-5) var(--ps-space-10); }
+  .au-logo--mobile { display: inline-flex; align-self: flex-start; margin-bottom: var(--ps-space-10); color: var(--ps-ink); }
+  .au-mobile-snapshot { display: block; margin-bottom: var(--ps-space-6); }
+}
+@media (max-width: 480px) {
+  .au-grid-2 { grid-template-columns: minmax(0, 1fr); }
+}

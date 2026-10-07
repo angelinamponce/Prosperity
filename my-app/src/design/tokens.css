@@ -1,0 +1,102 @@
+/* Prosperity design tokens. Every screen reads colors, type, spacing and motion from here. */
+
+:root {
+  /* Brand: sage */
+  --ps-brand-50: #f1f7f3;
+  --ps-brand-100: #e2efe6;
+  --ps-brand-200: #c3dfcc;
+  --ps-brand-300: #96c7a6;
+  --ps-brand-400: #5fa97a;
+  --ps-brand-500: #3d8a5a;
+  --ps-brand-600: #2f6b48;
+  --ps-brand-700: #275b3d;
+  --ps-brand-800: #1f4730;
+  --ps-brand-900: #143021;
+
+  /* Neutrals, tinted slightly green; the page fades from warm cream to soft sage */
+  --ps-bg: #f4f7f2;
+  --ps-bg-top: #fcfbf5;
+  --ps-surface: #ffffff;
+  --ps-surface-sunken: #f1f3f0;
+  --ps-border: #e3e9e2;
+  --ps-border-strong: #cdd5cc;
+  --ps-ink: #101a14;
+  --ps-ink-2: #46544b;
+  --ps-ink-3: #5f6b63;
+  --ps-ink-inverse: #ffffff;
+
+  /* Roles */
+  --ps-primary: var(--ps-brand-600);
+  --ps-primary-hover: var(--ps-brand-700);
+  --ps-primary-soft: var(--ps-brand-50);
+  --ps-focus: 0 0 0 3px rgba(61, 138, 90, 0.28);
+
+  /* Status: reserved for state, never used as a chart series */
+  --ps-positive: #1d7446;
+  --ps-positive-soft: #e5f3ea;
+  /* Setbacks use a gentle coral, not alarm red; text shades still pass WCAG AA on white and on the soft fill */
+  --ps-negative: #ad5540;
+  --ps-negative-soft: #fdf0ea;
+  --ps-negative-fill: #ef9e85; /* bars and dots, never text */
+  --ps-warning: #8f5f00;
+  --ps-warning-soft: #fcf3e2;
+  --ps-warning-fill: #e8b04a; /* bars and dots, never text */
+
+  /* Chart categorical slots, validated for colorblind separation in this order */
+  --ps-series-1: #3d8a5a;
+  --ps-series-2: #8e4fa0;
+  --ps-series-3: #d1683f;
+  --ps-series-4: #4f7cc4;
+  --ps-series-5: #c98a00;
+  --ps-series-6: #0a98a8;
+  --ps-series-muted: #a7b0aa;
+  --ps-grid: #edf0ec;
+
+  /* Type */
+  --ps-font: "Jost", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ps-font-display: "DM Serif Display", Georgia, "Times New Roman", serif;
+  --ps-text-xs: 0.75rem;   /* 12 */
+  --ps-text-sm: 0.84375rem; /* 13.5 */
+  --ps-text-md: 0.9375rem; /* 15 */
+  --ps-text-lg: 1rem;      /* 16 */
+  --ps-text-xl: 1.25rem;   /* 20 */
+  --ps-text-2xl: 1.5rem;   /* 24 */
+  --ps-text-3xl: 2rem;     /* 32 */
+  --ps-text-4xl: 2.75rem;  /* 44 */
+
+  /* Spacing: 4px grid */
+  --ps-space-1: 4px;
+  --ps-space-2: 8px;
+  --ps-space-3: 12px;
+  --ps-space-4: 16px;
+  --ps-space-5: 20px;
+  --ps-space-6: 24px;
+  --ps-space-8: 32px;
+  --ps-space-10: 40px;
+  --ps-space-14: 56px;
+
+  /* Shape and depth */
+  /* One radius per element type, used everywhere */
+  --ps-radius-sm: 10px;   /* chips, small controls */
+  --ps-radius-md: 14px;   /* inputs, list rows */
+  --ps-radius-lg: 22px;   /* cards */
+  --ps-radius-xl: 28px;   /* hero panels */
+  --ps-radius-full: 999px; /* buttons, badges */
+  /* Soft shadows tinted with the brand green instead of gray */
+  --ps-shadow-sm: 0 1px 2px rgba(35, 77, 51, 0.04), 0 6px 18px -8px rgba(35, 77, 51, 0.10);
+  --ps-shadow-md: 0 2px 6px rgba(35, 77, 51, 0.04), 0 16px 36px -14px rgba(35, 77, 51, 0.16);
+  --ps-shadow-lg: 0 4px 10px rgba(35, 77, 51, 0.05), 0 32px 64px -24px rgba(35, 77, 51, 0.22);
+  --ps-gradient-brand: linear-gradient(135deg, var(--ps-brand-500) 0%, var(--ps-brand-700) 100%);
+  --ps-gradient-soft: linear-gradient(135deg, var(--ps-brand-50) 0%, #fbfbf3 100%);
+
+  /* Motion */
+  --ps-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ps-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ps-fast: 140ms;
+  --ps-med: 260ms;
+  --ps-slow: 600ms;
+
+  /* Layout */
+  --ps-sidebar-w: 240px;
+  --ps-content-max: 1160px;
+}
