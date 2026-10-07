@@ -1,0 +1,29 @@
+{
+  "files": {
+    "main.css": "/Prosperity/static/css/main.e728f16e.css",
+    "main.js": "/Prosperity/static/js/main.6b4b689d.js",
+    "static/css/553.ce254da8.chunk.css": "/Prosperity/static/css/553.ce254da8.chunk.css",
+    "static/js/553.93de2986.chunk.js": "/Prosperity/static/js/553.93de2986.chunk.js",
+    "static/js/703.56dfa9b9.chunk.js": "/Prosperity/static/js/703.56dfa9b9.chunk.js",
+    "static/js/363.e8f67827.chunk.js": "/Prosperity/static/js/363.e8f67827.chunk.js",
+    "static/js/81.8402d02f.chunk.js": "/Prosperity/static/js/81.8402d02f.chunk.js",
+    "static/js/21.74b802c2.chunk.js": "/Prosperity/static/js/21.74b802c2.chunk.js",
+    "static/js/603.04ff867f.chunk.js": "/Prosperity/static/js/603.04ff867f.chunk.js",
+    "static/js/220.cd61f998.chunk.js": "/Prosperity/static/js/220.cd61f998.chunk.js",
+    "index.html": "/Prosperity/index.html",
+    "main.e728f16e.css.map": "/Prosperity/static/css/main.e728f16e.css.map",
+    "main.6b4b689d.js.map": "/Prosperity/static/js/main.6b4b689d.js.map",
+    "553.ce254da8.chunk.css.map": "/Prosperity/static/css/553.ce254da8.chunk.css.map",
+    "553.93de2986.chunk.js.map": "/Prosperity/static/js/553.93de2986.chunk.js.map",
+    "703.56dfa9b9.chunk.js.map": "/Prosperity/static/js/703.56dfa9b9.chunk.js.map",
+    "363.e8f67827.chunk.js.map": "/Prosperity/static/js/363.e8f67827.chunk.js.map",
+    "81.8402d02f.chunk.js.map": "/Prosperity/static/js/81.8402d02f.chunk.js.map",
+    "21.74b802c2.chunk.js.map": "/Prosperity/static/js/21.74b802c2.chunk.js.map",
+    "603.04ff867f.chunk.js.map": "/Prosperity/static/js/603.04ff867f.chunk.js.map",
+    "220.cd61f998.chunk.js.map": "/Prosperity/static/js/220.cd61f998.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e728f16e.css",
+    "static/js/main.6b4b689d.js"
+  ]
+}
