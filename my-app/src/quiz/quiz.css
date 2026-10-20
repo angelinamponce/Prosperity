@@ -5,7 +5,8 @@
 
 .qz-topics { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--ps-space-4); }
 .qz-topic { display: flex; flex-direction: column; align-items: flex-start; gap: var(--ps-space-2); padding: var(--ps-space-6); }
-.qz-topic .ps-btn { margin-top: auto; }
+.qz-topic__actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: var(--ps-space-2); }
+.qz-actions--tight { margin-top: 0; }
 .qz-topic__stats { margin: var(--ps-space-2) 0 var(--ps-space-3); font-size: var(--ps-text-xs); font-weight: 500; color: var(--ps-ink-2); }
 
 .qz-card { max-width: 820px; }

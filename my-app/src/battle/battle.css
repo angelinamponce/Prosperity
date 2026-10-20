@@ -1,0 +1,106 @@
+/* Quiz Battles. The top screen scales with its own size (container units), so it works from phones to desktop. */
+
+.hh__screen--top { container-type: size; }
+.bt-loading { min-height: 100dvh; display: grid; place-items: center; background: var(--ps-bg); font-size: 1.1rem; }
+
+.bt-scene { position: absolute; inset: 0; overflow: hidden; }
+/* Stepped sky bands and a dithered field read as pixel art without any image files. */
+.bt-sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, var(--px-sky-1) 0 18%, var(--px-sky-2) 18% 36%, #e6f4ea 36% 50%, transparent 50%);
+}
+.bt-field {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 54%;
+  background:
+    linear-gradient(180deg, var(--px-grass-3) 0 6%, transparent 6%),
+    repeating-linear-gradient(90deg, transparent 0 6px, rgba(255, 255, 255, 0.06) 6px 8px),
+    radial-gradient(circle at 25% 30%, rgba(0, 0, 0, 0.06) 1px, transparent 1.5px) 0 0 / 10px 10px,
+    var(--px-grass-2);
+}
+
+/* Platforms */
+.bt-pad { position: absolute; border-radius: 50%; background: var(--px-grass-3); box-shadow: inset 0 -0.8cqh 0 var(--px-grass-1), 0 0.6cqh 0 rgba(0, 0, 0, 0.12); }
+.bt-pad--foe { right: 8cqw; top: 41cqh; width: 34cqw; height: 9cqh; }
+.bt-pad--sprout { left: 4cqw; bottom: 5cqh; width: 40cqw; height: 11cqh; }
+
+/* Combatants */
+.bt-foe { position: absolute; right: 15cqw; top: 11cqh; width: 21cqw; }
+.bt-foe svg { width: 100%; height: auto; }
+.bt-foe__body { animation: bt-bob 1.4s steps(2, jump-none) infinite; transform-origin: 50% 100%; }
+.bt-sprout { position: absolute; left: 13cqw; bottom: 10cqh; width: 17cqw; }
+.bt-sprout .sp-mascot { width: 100% !important; height: auto !important; }
+.bt-sprout .sp-mascot svg { width: 100%; height: auto; }
+.bt-sprout__body { animation: bt-bob 1.6s steps(2, jump-none) 0.4s infinite; transform-origin: 50% 100%; }
+@keyframes bt-bob { 50% { transform: translateY(-0.8cqh); } }
+
+.fx-hit { animation: bt-hit 520ms steps(6, jump-none), bt-bob 1.4s steps(2, jump-none) 520ms infinite; }
+@keyframes bt-hit {
+  0%, 100% { transform: translateX(0); filter: none; }
+  20% { transform: translateX(-2cqw); filter: brightness(1.8); }
+  40% { transform: translateX(1.6cqw); }
+  60% { transform: translateX(-1cqw); filter: brightness(1.5); }
+  80% { transform: translateX(0.6cqw); }
+}
+.fx-lunge { animation: bt-lunge 420ms ease-out, bt-bob 1.6s steps(2, jump-none) 420ms infinite; }
+@keyframes bt-lunge { 40% { transform: translate(4cqw, -3cqh) scale(1.05); } }
+/* A small, cosmetic wilt that recovers on its own. */
+.fx-wilt { animation: bt-wilt 1100ms ease-in-out, bt-bob 1.6s steps(2, jump-none) 1100ms infinite; }
+@keyframes bt-wilt { 25%, 65% { transform: scale(1.04, 0.86); filter: saturate(0.55); } }
+
+.bt-scene.is-befriended .bt-foe__body { animation: bt-happy 700ms ease-in-out infinite; }
+@keyframes bt-happy { 50% { transform: translateY(-3cqh); } }
+.bt-scene.is-befriended .bt-foe::after { content: "♥"; position: absolute; top: -6cqh; right: 0; font-size: 6cqw; color: var(--px-flower); animation: bt-float 1.6s ease-out infinite; }
+@keyframes bt-float { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-6cqh); opacity: 0; } }
+.bt-scene.is-wandered .bt-foe { animation: bt-wander 1.6s ease-in forwards; }
+@keyframes bt-wander { to { transform: translateX(30cqw); opacity: 0; } }
+
+/* Name plates */
+.bt-plate {
+  position: absolute;
+  z-index: 2;
+  width: 42cqw;
+  padding: 1.4cqh 1.8cqw 1.2cqh;
+  border: 3px solid var(--px-frame);
+  border-radius: 10px;
+  background: var(--px-paper);
+  box-shadow: inset 0 0 0 2px var(--px-paper), inset 0 0 0 4px var(--px-frame-light), 0 4px 0 rgba(20, 40, 25, 0.25);
+}
+.bt-plate--foe { top: 5cqh; left: 4cqw; }
+.bt-plate--sprout { bottom: 7cqh; right: 4cqw; }
+.bt-plate__row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 1cqw; }
+.bt-plate__name { font-size: max(0.82rem, 3cqw); font-weight: 600; white-space: nowrap; }
+.bt-plate__lv { font-size: max(0.66rem, 2.1cqw); color: var(--px-ink-2); white-space: nowrap; }
+.bt-plate__num { display: block; margin-top: 0.4cqh; text-align: right; font-family: var(--ps-font); font-size: max(0.66rem, 2.1cqw); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bt-bar { display: flex; align-items: center; gap: 1cqw; margin-top: 0.8cqh; }
+.bt-bar__label { padding: 0 0.8cqw; border-radius: 4px; background: var(--px-frame); color: #fff; font-size: max(0.58rem, 1.7cqw); letter-spacing: 0.05em; text-transform: uppercase; }
+.bt-bar__track { flex: 1; height: max(7px, 1.8cqh); border: 2px solid var(--px-ink); border-radius: 4px; background: var(--px-bar-track); overflow: hidden; }
+.bt-bar__fill { display: block; height: 100%; background: var(--px-bar); transition: width 700ms steps(10, jump-end); }
+.bt-bar__fill--xp { background: var(--ps-brand-400); }
+
+/* Intro: horizontal bars slide away in alternating directions. */
+.bt-wipe { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; }
+.bt-wipe__bar { flex: 1; background: var(--px-shell); animation: bt-wipe 520ms steps(8, jump-end) forwards; animation-delay: calc(var(--i) * 45ms); }
+.bt-wipe__bar:nth-child(odd) { --dir: -1; }
+@keyframes bt-wipe { to { transform: translateX(calc(var(--dir, 1) * 101%)); } }
+
+/* Bottom screen */
+.bt-note { font-family: var(--ps-font); font-size: 0.78rem; line-height: 1.4; color: var(--px-ink-2); }
+.bt-answers .lm__item { min-height: 58px; }
+.bt-pause { display: flex; flex-direction: column; gap: 10px; }
+
+/* Narrow screens: a little more room so names never get cut off. */
+@container (max-width: 520px) {
+  .bt-plate { width: 50cqw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bt-foe__body, .bt-sprout__body, .fx-hit, .fx-lunge, .fx-wilt,
+  .bt-scene.is-befriended .bt-foe__body, .bt-scene.is-befriended .bt-foe::after, .bt-scene.is-wandered .bt-foe { animation: none; }
+  .bt-scene.is-wandered .bt-foe { opacity: 0.4; }
+  .bt-bar__fill { transition: none; }
+}

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AppstoreOutlined, CreditCardOutlined, FlagOutlined, FormOutlined, LineChartOutlined, QuestionCircleOutlined, RiseOutlined, SwapOutlined, TrophyOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, LogoMark, Sprout } from "../design";
 import { sampleProfile } from "../dashboard/sampleProfile";
@@ -32,6 +32,8 @@ const PAGES = [
   { path: "future", label: "Future", icon: <RiseOutlined />, Component: lazy(() => import("../dashboard/pages/Future")) },
   { path: "goals", label: "Goals", icon: <FlagOutlined />, Component: lazy(() => import("../dashboard/pages/Goals")) },
   { path: "quiz", label: "Quizzes", icon: <FormOutlined />, Component: lazy(() => import("../dashboard/pages/Quiz")) },
+  // Full screen, reached from the Quizzes page rather than the nav.
+  { path: "battle", label: "Quiz battle", nav: false, tab: false, fullscreen: true, Component: lazy(() => import("../battle/BattleScreen")) },
   // Not in the phone tab bar (it would be crowded); the level chip in the top bar links here instead.
   { path: "progress", label: "Progress", icon: <TrophyOutlined />, tab: false, Component: lazy(() => import("../dashboard/pages/Progress")) },
 ];
@@ -85,6 +87,7 @@ function LoadErrorState({ onRetry, onExplore }) {
 
 export default function UserDashboard() {
   const { "*": sub = "" } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   // Unknown sub-paths (including /first-time after sign-up) show the overview.
   const page = PAGES.find((p) => p.path === sub) ?? PAGES[0];
@@ -170,6 +173,20 @@ export default function UserDashboard() {
   );
   const { Component } = page;
 
+  // Garden-mode screens (Quiz Battles) take over the whole window, with no sidebar or tab bar.
+  if (page.fullscreen) {
+    return (
+      <GameContext.Provider value={game}>
+        <SproutProvider scope="app" getContext={() => ({ profile, plan })}>
+          <Suspense fallback={<div className="ps-root"><PageSkeleton /></div>}>
+            <Component profile={profile} metrics={metrics} plan={plan} setPlan={setPlan} go={go} query={new URLSearchParams(location.search)} />
+          </Suspense>
+          <GameFeed />
+        </SproutProvider>
+      </GameContext.Provider>
+    );
+  }
+
   return (
     <GameContext.Provider value={game}>
       <SproutProvider scope="app" getContext={() => ({ profile: showPages ? profile : null, plan })}>
@@ -179,7 +196,7 @@ export default function UserDashboard() {
               <LogoMark />
               Prosperity
             </Link>
-            <nav className="db-nav" aria-label="Dashboard">{PAGES.map(navLink)}</nav>
+            <nav className="db-nav" aria-label="Dashboard">{PAGES.filter((p) => p.nav !== false).map(navLink)}</nav>
             <div className="db-side__foot">
               <GardenerChip to={`${BASE}/progress`} />
               {replayButton}
@@ -235,7 +252,7 @@ export default function UserDashboard() {
             </div>
           </main>
 
-          <nav className="db-tabbar" aria-label="Dashboard">{PAGES.filter((p) => p.tab !== false).map(navLink)}</nav>
+          <nav className="db-tabbar" aria-label="Dashboard">{PAGES.filter((p) => p.nav !== false && p.tab !== false).map(navLink)}</nav>
           <SproutLauncher />
           <SproutChat starters={SPROUT_STARTERS} />
         </div>

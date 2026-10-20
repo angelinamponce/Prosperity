@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRightOutlined, BulbOutlined, CheckCircleFilled, CloseCircleFilled, ScissorOutlined } from "@ant-design/icons";
+import { ArrowRightOutlined, BulbOutlined, CheckCircleFilled, CloseCircleFilled, ScissorOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import { Badge, Button, Card } from "../../design";
 import { ASSIST_SHARE, QUIZ_TOPICS, answerXpPreview, useGame } from "../../game";
 import { BANK } from "../../quiz/bank";
@@ -14,7 +14,7 @@ import "../../quiz/quiz.css";
 const QUESTIONS_PER_QUIZ = 5;
 const sharePct = (k) => `${Math.round(ASSIST_SHARE[k] * 100)}%`;
 
-function TopicMenu({ quiz, onStart }) {
+function TopicMenu({ quiz, onStart, onBattle }) {
   const due = dueCounts(BANK, quiz);
   const totals = BANK.reduce((a, q) => ({ ...a, [q.topic]: (a[q.topic] ?? 0) + 1 }), {});
   return (
@@ -23,7 +23,10 @@ function TopicMenu({ quiz, onStart }) {
         <p className="ps-body">
           Questions you've missed come back later so they stick, and new ones match your level. There's no timer, and a wrong answer never costs anything.
         </p>
-        <Button iconRight={<ArrowRightOutlined />} onClick={() => onStart(null)}>Start a quick quiz</Button>
+        <div className="qz-actions qz-actions--tight">
+          <Button iconRight={<ArrowRightOutlined />} onClick={() => onStart(null)}>Start a quick quiz</Button>
+          <Button variant="secondary" icon={<ThunderboltOutlined />} onClick={() => onBattle(null)}>Play as a battle</Button>
+        </div>
       </Card>
       <ul className="qz-topics">
         {QUIZ_TOPICS.map((t, i) => {
@@ -35,9 +38,14 @@ function TopicMenu({ quiz, onStart }) {
               <p className="qz-topic__stats">
                 {s ? `${s.correct} of ${s.seen} answers right` : "Not tried yet"} · {due[t] ?? 0} of {totals[t]} ready to practice
               </p>
-              <Button variant="secondary" size="sm" onClick={() => onStart(t)} aria-label={`Practice ${TOPICS[t].label}`}>
-                Practice
-              </Button>
+              <div className="qz-topic__actions">
+                <Button variant="secondary" size="sm" onClick={() => onStart(t)} aria-label={`Practice ${TOPICS[t].label}`}>
+                  Practice
+                </Button>
+                <Button variant="ghost" size="sm" icon={<ThunderboltOutlined />} onClick={() => onBattle(t)} aria-label={`Battle: ${TOPICS[t].label}`}>
+                  Battle
+                </Button>
+              </div>
             </li>
           );
         })}
@@ -230,7 +238,7 @@ function Results({ session, xp, onAgain, onMenu }) {
   );
 }
 
-export default function Quiz({ profile, metrics }) {
+export default function Quiz({ profile, metrics, go }) {
   const game = useGame();
   const [session, setSession] = useState(null);
   const [xp, setXp] = useState(0);
@@ -252,7 +260,7 @@ export default function Quiz({ profile, metrics }) {
         title={session ? (session.topic ? `${TOPICS[session.topic].label} quiz` : "Quick quiz") : "Money quizzes"}
         description="Short questions in plain English. Every answer explains the math behind it."
       />
-      {!session && <TopicMenu quiz={game.progress.quiz} onStart={start} />}
+      {!session && <TopicMenu quiz={game.progress.quiz} onStart={start} onBattle={(t) => go(t ? `battle?topic=${t}` : "battle")} />}
       {session && session.phase !== "done" && (
         <QuestionView
           session={session}

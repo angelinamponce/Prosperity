@@ -107,4 +107,30 @@
   /* Layout */
   --ps-sidebar-w: 240px;
   --ps-content-max: 1160px;
+
+  /* ---------- Garden mode (pixel world) ----------
+     A limited palette for pixel art. Sun yellow lives only inside art (sun, flowers, wheat);
+     menus, text boxes and reward UI use the sage and paper colors. */
+  --px-font: "Pixelify Sans", "Jost", system-ui, sans-serif;
+  --px-ink: #1f2b22;          /* text and outlines; AA on paper */
+  --px-ink-2: #3e5143;
+  --px-paper: #fbfaf2;        /* text boxes and name plates */
+  --px-paper-2: #eef3e6;
+  --px-frame: #2f6b48;        /* box borders */
+  --px-frame-light: #96c7a6;
+  --px-shell: #24382b;        /* handheld body */
+  --px-shell-2: #31493a;
+  --px-bezel: #121b15;
+  --px-sky-1: #bfe3f0;
+  --px-sky-2: #d9eff2;
+  --px-grass-1: #5fa165;
+  --px-grass-2: #7cbb6e;
+  --px-grass-3: #9fd07f;
+  --px-dirt-1: #c9a774;
+  --px-dirt-2: #ddc08e;
+  --px-shadow: rgba(20, 40, 25, 0.28);
+  --px-sun: #f4cf55;          /* art only */
+  --px-flower: #f08aa0;       /* art only */
+  --px-bar: var(--ps-brand-500);
+  --px-bar-track: #d6e6d3;
 }

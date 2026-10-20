@@ -1,0 +1,157 @@
+/* Garden mode: the handheld frame, text box and list menus. Pixel font for game text; Jost for reading. */
+
+.px-root {
+  font-family: var(--px-font);
+  color: var(--px-ink);
+  -webkit-font-smoothing: antialiased;
+}
+.px-root *, .px-root *::before, .px-root *::after { box-sizing: border-box; }
+.px-root :where(h1, h2, h3, p) { margin: 0; }
+.px-root button { font: inherit; color: inherit; }
+.px-root :focus-visible { outline: 3px solid var(--ps-brand-400); outline-offset: 2px; }
+.px-art { display: block; image-rendering: pixelated; }
+
+/* ---------- Handheld ---------- */
+.hh {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: linear-gradient(180deg, var(--ps-bg-top), var(--ps-bg));
+}
+/* Sized from the viewport height so both screens always fit: each screen is 16:10, plus the hinge. */
+.hh__device {
+  --w: min(760px, calc(100vw - 32px), calc((100dvh - 120px) * 0.8));
+  width: var(--w);
+  padding: 14px;
+  border-radius: 26px;
+  background: linear-gradient(160deg, var(--px-shell-2), var(--px-shell));
+  box-shadow: 0 2px 0 rgba(255, 255, 255, 0.06) inset, 0 24px 48px -20px rgba(20, 40, 25, 0.55), 0 6px 0 #1a2a20;
+}
+.hh__screen {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 4px solid var(--px-bezel);
+  background: var(--px-paper-2);
+}
+.hh__screen--bottom { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.hh__hinge { display: grid; grid-template-columns: 24px 1fr 24px; align-items: center; gap: 8px; min-height: 48px; padding: 6px 4px; }
+.hh__led { width: 8px; height: 8px; border-radius: 50%; background: #7bd88f; box-shadow: 0 0 6px #7bd88f; }
+.hh__speaker { width: 22px; height: 10px; background: radial-gradient(circle, #0e1611 1.2px, transparent 1.6px) 0 0 / 5px 5px; opacity: 0.8; }
+.hh__toolbar { display: flex; justify-content: center; gap: 8px; }
+
+.px-root .hh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 2px solid #0e1611;
+  border-radius: 999px;
+  background: #3d5a47;
+  color: #f2f7ef;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #0e1611;
+}
+.px-root .hh-btn:active { transform: translateY(3px); box-shadow: none; }
+.px-root .hh-btn[aria-pressed="true"] { background: var(--ps-brand-600); }
+
+/* Everything holds still while paused. */
+.hh.is-paused *, .hh.is-paused *::before, .hh.is-paused *::after { animation-play-state: paused !important; }
+
+/* Phones: no device, just the two screens stacked with the toolbar between them. */
+@media (max-width: 700px) {
+  .hh { padding: 0; place-items: stretch; }
+  .hh__device { --w: 100vw; width: 100%; min-height: 100dvh; padding: 0; border-radius: 0; background: var(--px-shell); box-shadow: none; display: flex; flex-direction: column; }
+  .hh__screen { border-radius: 0; border-width: 0; }
+  .hh__screen--bottom { flex: 1; aspect-ratio: auto; min-height: 340px; padding: 10px; }
+  .hh__hinge { min-height: 44px; padding: 4px 10px; }
+}
+
+/* ---------- Text box ---------- */
+.tb {
+  position: relative;
+  flex-shrink: 0;
+  min-height: 5.4em;
+  max-height: 46%;
+  overflow-y: auto;
+  padding: 14px 40px 16px 18px;
+  border: 3px solid var(--px-frame);
+  border-radius: 12px;
+  background: var(--px-paper);
+  box-shadow: inset 0 0 0 3px var(--px-paper), inset 0 0 0 5px var(--px-frame-light), 0 3px 0 rgba(20, 40, 25, 0.18);
+  cursor: default;
+}
+.tb.is-waiting { cursor: pointer; }
+.tb--pixel .tb__text { font-size: clamp(0.95rem, 2.1vw, 1.12rem); line-height: 1.45; letter-spacing: 0.01em; }
+.tb--read .tb__text { font-family: var(--ps-font); font-size: clamp(0.88rem, 1.8vw, 0.98rem); line-height: 1.5; color: var(--px-ink); }
+.tb__ghost { visibility: hidden; }
+/* Inside the box (not hanging off its edge) so it never gets clipped when long text scrolls. */
+.tb__speaker {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--px-frame);
+  color: #fff;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+.tb__next {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  width: 30px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--px-frame);
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.45;
+}
+.tb__next.is-ready { opacity: 1; animation: tb-blink 900ms steps(2, jump-none) infinite; }
+@keyframes tb-blink { 50% { transform: translateY(3px); } }
+
+/* ---------- List menu ---------- */
+.lm { display: grid; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); gap: 8px; }
+.lm__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 8px 12px 8px 30px;
+  border: 3px solid var(--px-frame);
+  border-radius: 10px;
+  background: var(--px-paper);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--px-frame);
+  transition: transform 80ms ease, box-shadow 80ms ease, background 80ms ease;
+}
+.lm__item:active:not([aria-disabled]) { transform: translateY(3px); box-shadow: none; }
+.lm__item.is-cursor:not([aria-disabled]) { background: #ffffff; }
+.lm__cursor { position: absolute; left: 10px; font-size: 11px; color: var(--px-frame); visibility: hidden; }
+.lm__item.is-cursor .lm__cursor { visibility: visible; }
+.lm__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lm__label { font-size: clamp(0.92rem, 2vw, 1.05rem); line-height: 1.25; }
+.lm__sub { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--px-ink-2); }
+.lm__note { font-size: 0.75rem; color: var(--px-ink-2); }
+.lm__item[aria-disabled] { cursor: not-allowed; background: var(--px-paper-2); border-style: dashed; box-shadow: none; }
+.lm__item[aria-disabled] .lm__label { text-decoration: line-through; color: var(--px-ink-2); }
+
+/* Readable answers: the answer grid uses Jost so longer choices stay easy to read. */
+.lm--read .lm__label { font-family: var(--ps-font); font-size: clamp(0.84rem, 1.8vw, 0.95rem); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tb__next.is-ready { animation: none; }
+  .lm__item { transition: none; }
+}
