@@ -5,7 +5,7 @@ import { Explain } from "../../dashboard/glossary";
 import { GameContext, gameKey, useGameStore } from "../store";
 
 function Harness({ id = "test-user", children }) {
-  const game = useGameStore(id, { termCount: 12 });
+  const game = useGameStore(id, { termKeys: [] });
   return (
     <GameContext.Provider value={game}>
       <span data-testid="xp">{game.progress.xp}</span>

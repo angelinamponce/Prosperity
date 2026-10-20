@@ -17,7 +17,8 @@ export default function Progress({ onReplayTour }) {
   const game = useGame();
   if (!game?.ready) return <EmptyState title="Getting your garden ready…" />;
 
-  const { info, progress: p, streakNow, checkedInThisWeek, termCount } = game;
+  const { info, progress: p, streakNow, checkedInThisWeek } = game;
+  const termCount = Object.keys(GLOSSARY).length;
   const learned = Object.keys(p.terms).length;
   const earned = BADGES.filter((b) => p.badges[b.id]);
 

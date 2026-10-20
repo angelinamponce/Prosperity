@@ -14,6 +14,63 @@ export const XP = {
   badge: 25,
 };
 
+// ---------- Quizzes ----------
+
+export const QUIZ_TOPICS = ["budgeting", "debt", "saving", "investing"];
+// A correct answer is worth this much by difficulty (1 to 3).
+export const QUIZ_XP = { 1: 8, 2: 12, 3: 16 };
+// Help never costs XP; it only lowers what this answer earns, and the UI says so up front.
+export const ASSIST_SHARE = { none: 1, one: 0.75, both: 0.5 };
+
+const DAY = 86400000;
+// Spaced repetition: after a correct answer a question moves up a box and rests this many days.
+// A wrong answer sends it back to box 0, due again right away.
+export const BOX_REST_DAYS = [0, 1, 3, 7, 14, 30];
+export const MAX_BOX = BOX_REST_DAYS.length - 1;
+
+/** A question is "due" when it's new or its rest is over. Only due questions pay XP, so XP can't be farmed. */
+export function isDue(qState, now) {
+  return !qState || now >= qState.due;
+}
+
+export function quizXp(difficulty, assists = {}) {
+  const used = (assists.hint ? 1 : 0) + (assists.sprout ? 1 : 0);
+  const share = used === 0 ? ASSIST_SHARE.none : used === 1 ? ASSIST_SHARE.one : ASSIST_SHARE.both;
+  return Math.round((QUIZ_XP[difficulty] ?? QUIZ_XP[1]) * share);
+}
+
+/** What a correct answer would earn right now, and why, for the XP tag next to each question. */
+export function answerXpPreview(progress, question, assists, now) {
+  const due = isDue(progress.quiz.q[question.id], now);
+  return { xp: due ? quizXp(question.difficulty, assists) : 0, due, full: quizXp(question.difficulty) };
+}
+
+function recordAnswer(quiz, { id, topic, correct }, now) {
+  const prev = quiz.q[id];
+  const due = isDue(prev, now);
+  let box = prev?.box ?? 0;
+  let dueAt = prev?.due ?? now;
+  if (!correct) {
+    box = 0;
+    dueAt = now;
+  } else if (due) {
+    box = Math.min(MAX_BOX, box + 1);
+    dueAt = now + BOX_REST_DAYS[box] * DAY;
+  }
+  const t = quiz.topics[topic] ?? { seen: 0, correct: 0 };
+  return {
+    due,
+    quiz: {
+      ...quiz,
+      q: {
+        ...quiz.q,
+        [id]: { seen: (prev?.seen ?? 0) + 1, correct: (prev?.correct ?? 0) + (correct ? 1 : 0), box, due: dueAt, last: now },
+      },
+      topics: { ...quiz.topics, [topic]: { seen: t.seen + 1, correct: t.correct + (correct ? 1 : 0) } },
+    },
+  };
+}
+
 // Total XP needed to reach each level. Sprout grows a stage every two levels.
 export const LEVEL_XP = [0, 40, 100, 180, 280, 400, 550, 720, 920, 1150];
 export const MAX_LEVEL = LEVEL_XP.length;
@@ -112,10 +169,12 @@ export const BADGES = [
   { id: "tour-guide", name: "Look Around", icon: "sprout", how: "Finish the dashboard tour.", earned: (p) => p.flags.tourDone },
   { id: "curious-mind", name: "Curious Mind", icon: "sapling", how: "Learn 5 money words. Tap any ? to learn one.", earned: (p) => Object.keys(p.terms).length >= 5 },
   { id: "steady-gardener", name: "Steady Gardener", icon: "young", how: "Check in during 4 different weeks. They don't need to be in a row.", earned: (p) => p.streak.total >= 4 },
-  { id: "word-collector", name: "Word Collector", icon: "tree", how: "Learn every money word on the dashboard.", earned: (p, ctx) => ctx.termCount > 0 && Object.keys(p.terms).length >= ctx.termCount },
+  { id: "word-collector", name: "Word Collector", icon: "tree", how: "Learn every money word on the dashboard.", earned: (p, ctx) => ctx.termKeys.length > 0 && ctx.termKeys.every((k) => p.terms[k]) },
+  { id: "good-question", name: "Good Question", icon: "sprout", how: "Answer a quiz question correctly.", earned: (p) => QUIZ_TOPICS.some((t) => p.quiz.topics[t]?.correct > 0) },
+  { id: "well-rounded", name: "Well Rounded", icon: "young", how: "Get a quiz question right in all four topics.", earned: (p) => QUIZ_TOPICS.every((t) => p.quiz.topics[t]?.correct > 0) },
 ];
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export function emptyProgress() {
   return {
@@ -125,8 +184,11 @@ export function emptyProgress() {
     badges: {},
     flags: { surveyDone: false, tourDone: false },
     streak: { count: 0, freezes: START_FREEZES, best: 0, total: 0, lastWeek: null },
+    // q: per-question history and review timing; topics: answers per topic.
+    // befriended and keepers are filled in by battles and Greenhouse keepers later.
+    quiz: { q: {}, topics: {}, befriended: {}, keepers: {} },
     // Classic is the default view; Garden mode arrives in a later phase.
-    settings: { view: "classic", sound: false, instantText: false },
+    settings: { view: "classic", sound: false, instantText: false, speedRound: false },
   };
 }
 
@@ -142,6 +204,7 @@ export function normalizeProgress(raw) {
     badges: obj(raw.badges, {}),
     flags: { ...base.flags, ...obj(raw.flags, {}) },
     streak: { ...base.streak, ...obj(raw.streak, {}) },
+    quiz: Object.fromEntries(Object.keys(base.quiz).map((k) => [k, obj(obj(raw.quiz, {})[k], {})])),
     settings: { ...base.settings, ...obj(raw.settings, {}) },
   };
 }
@@ -149,9 +212,10 @@ export function normalizeProgress(raw) {
 /**
  * Applies one game action and returns the new progress plus the events to celebrate.
  * Actions: { type: "learnTerm", key, title } | { type: "checkIn", week } | { type: "surveyDone" } | { type: "tourDone" }
- * Repeating an action never awards XP twice.
+ *        | { type: "answerQuestion", id, topic, difficulty, correct, assists: { hint, sprout } }
+ * Repeating an action never awards XP twice. ctx.termKeys lists the dashboard's money words.
  */
-export function reduce(progress, action, ctx = { termCount: 0 }) {
+export function reduce(progress, action, ctx = { termKeys: [] }) {
   let p = progress;
   const events = [];
   const addXp = (amount, label) => {
@@ -183,6 +247,14 @@ export function reduce(progress, action, ctx = { termCount: 0 }) {
       p = { ...p, flags: { ...p.flags, tourDone: true } };
       addXp(XP.tourDone, "Tour finished");
       break;
+    case "answerQuestion": {
+      const now = action.at ?? Date.now();
+      const res = recordAnswer(p.quiz, action, now);
+      p = { ...p, quiz: res.quiz };
+      // Wrong answers cost nothing; they just come back sooner.
+      if (action.correct && res.due) addXp(quizXp(action.difficulty, action.assists), "Correct answer");
+      break;
+    }
     default:
       return { progress, events: [] };
   }

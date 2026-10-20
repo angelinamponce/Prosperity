@@ -32,15 +32,15 @@ export function useGame() {
 
 /**
  * Owns the player's progress. `id` is the account uid, "guest", or null while sign-in is still loading
- * (actions are ignored until then). `termCount` is how many money words exist, for the Word Collector badge.
+ * (actions are ignored until then). `termKeys` lists the dashboard's money words, for the Word Collector badge.
  */
-export function useGameStore(id, { termCount = 0 } = {}) {
+export function useGameStore(id, { termKeys = [] } = {}) {
   const [progress, setProgress] = useState(() => load(id));
   const ref = useRef(progress);
   const loadedFor = useRef(id);
   const [feed, setFeed] = useState([]);
-  const ctx = useRef({ termCount });
-  ctx.current = { termCount };
+  const ctx = useRef({ termKeys });
+  ctx.current = { termKeys };
 
   // Switching accounts (or finishing sign-in) loads that account's save.
   useEffect(() => {
@@ -87,7 +87,6 @@ export function useGameStore(id, { termCount = 0 } = {}) {
       info: levelInfo(progress.xp),
       streakNow: currentStreak(progress.streak, weekNumber()),
       checkedInThisWeek: progress.streak.lastWeek === weekNumber(),
-      termCount,
       dispatch,
       learnTerm,
       checkIn,
@@ -95,6 +94,6 @@ export function useGameStore(id, { termCount = 0 } = {}) {
       feed,
       takeFeed,
     }),
-    [id, progress, termCount, dispatch, learnTerm, checkIn, setSetting, feed, takeFeed]
+    [id, progress, dispatch, learnTerm, checkIn, setSetting, feed, takeFeed]
   );
 }

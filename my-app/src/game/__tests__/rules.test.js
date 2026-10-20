@@ -12,7 +12,8 @@ import {
   weekNumber,
 } from "../rules";
 
-const ctx = { termCount: 12 };
+const TERMS = Array.from({ length: 12 }, (_, i) => `t${i}`);
+const ctx = { termKeys: TERMS };
 const run = (actions, start = emptyProgress()) =>
   actions.reduce(
     (acc, a) => {
@@ -158,6 +159,7 @@ describe("normalizeProgress", () => {
     expect(p.terms).toEqual({});
     expect(p.streak.count).toBe(3);
     expect(p.streak.freezes).toBe(START_FREEZES);
-    expect(p.settings).toEqual({ view: "classic", sound: true, instantText: false });
+    expect(p.settings).toEqual({ view: "classic", sound: true, instantText: false, speedRound: false });
+    expect(p.quiz).toEqual({ q: {}, topics: {}, befriended: {}, keepers: {} });
   });
 });

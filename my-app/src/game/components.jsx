@@ -4,6 +4,8 @@ import { ArrowRightOutlined } from "@ant-design/icons";
 import { Button, StageIcon, useCelebration } from "../design";
 import { useGame } from "./store";
 
+const QUIET_SOURCES = ["learnTerm", "answerQuestion"];
+
 const xpLine = (info) => (info.maxed ? "Top level reached" : `${info.toNext} XP to level ${info.level + 1}`);
 
 /** XP toward the next level. Pass `decorative` when a nearby label already says the same thing. */
@@ -112,8 +114,8 @@ export function GameFeed() {
     const { events, source } = batch;
     const big = events.find((e) => e.type === "stageUp");
     const notable = events.some((e) => e.type === "badge" || e.type === "levelUp");
-    // A new word already says "+10 XP" inside its explanation bubble, so it only gets a toast for a badge or level.
-    if (source !== "learnTerm" || notable || big) celebrate({ message: summarize(events) });
+    // New words and quiz answers show their XP right where they happen, so they only get a toast for a badge or level.
+    if (!QUIET_SOURCES.includes(source) || notable || big) celebrate({ message: summarize(events) });
     if (big) setStageUp({ ...big, level: events.find((e) => e.type === "levelUp")?.level });
     game.takeFeed(batch.id);
   }, [batch, celebrate, game]);

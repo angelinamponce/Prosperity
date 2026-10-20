@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AppstoreOutlined, CreditCardOutlined, FlagOutlined, LineChartOutlined, QuestionCircleOutlined, RiseOutlined, SwapOutlined, TrophyOutlined, UserOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, CreditCardOutlined, FlagOutlined, FormOutlined, LineChartOutlined, QuestionCircleOutlined, RiseOutlined, SwapOutlined, TrophyOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, LogoMark, Sprout } from "../design";
 import { sampleProfile } from "../dashboard/sampleProfile";
 import { computeMetrics } from "../dashboard/finance";
@@ -13,9 +13,7 @@ import { EmptyState, PageSkeleton } from "../dashboard/components";
 import "../dashboard/dashboard.css";
 import { SproutChat, SproutLauncher, SproutProvider } from "../sprout";
 import { GameContext, GameFeed, GardenerChip, useGameStore } from "../game";
-import { GLOSSARY } from "../dashboard/glossary";
-
-const TERM_COUNT = Object.keys(GLOSSARY).length;
+import { DASHBOARD_TERMS } from "../dashboard/glossary";
 
 const Tour = lazy(() => import("../dashboard/tutorial/Tour"));
 
@@ -33,6 +31,7 @@ const PAGES = [
   { path: "invest", label: "Invest", icon: <LineChartOutlined />, Component: lazy(() => import("../dashboard/pages/Invest")) },
   { path: "future", label: "Future", icon: <RiseOutlined />, Component: lazy(() => import("../dashboard/pages/Future")) },
   { path: "goals", label: "Goals", icon: <FlagOutlined />, Component: lazy(() => import("../dashboard/pages/Goals")) },
+  { path: "quiz", label: "Quizzes", icon: <FormOutlined />, Component: lazy(() => import("../dashboard/pages/Quiz")) },
   // Not in the phone tab bar (it would be crowded); the level chip in the top bar links here instead.
   { path: "progress", label: "Progress", icon: <TrophyOutlined />, tab: false, Component: lazy(() => import("../dashboard/pages/Progress")) },
 ];
@@ -128,7 +127,7 @@ export default function UserDashboard() {
   const steps = useMemo(() => tourSteps(profile.name.split(" ")[0]), [profile.name]);
 
   // XP, badges and streak, saved per account (per device for visitors). Waits until sign-in is known.
-  const game = useGameStore(user.ready ? user.uid ?? "guest" : null, { termCount: TERM_COUNT });
+  const game = useGameStore(user.ready ? user.uid ?? "guest" : null, { termKeys: DASHBOARD_TERMS });
   const { checkIn, dispatch } = game;
   // Opening the dashboard is the weekly check-in; repeat visits in the same week change nothing.
   useEffect(() => {
