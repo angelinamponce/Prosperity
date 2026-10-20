@@ -30,18 +30,47 @@ function gnat(state) {
   return toRows(g);
 }
 
+// Minimum Mite: an insect with a distinct head, two antennae and six bent legs, holding up one coin
+// (its "minimum payment") in a front claw. The coin sits apart from the body with a bold "$" so it reads
+// as an object even at small sizes.
+const MITE_FACE = {
+  idle: ["kw...kw", "kk...kk", "c.ooo.c"],
+  hit: [".......", "kk...kk", "..ooo.."],
+  happy: [".k...k.", "k.k.k.k", "..ooo.."],
+};
+const COIN = [
+  ".yyDyy.",
+  "yjDDDyy",
+  "yyDyyyy",
+  "yyDDDyy",
+  "yyyyDyy",
+  "yyDDDYy",
+  ".yYDYY.",
+];
+
 function mite(state) {
   const g = blank();
-  ellipse(g, 12, 13.5, 8, 6, "b");
-  ellipse(g, 20.5, 16.5, 2.6, 2.6, "y"); // the one tiny coin it clings to
-  shade(g, { b: ["h", "B"], y: ["y", "Y"] });
-  stamp(g, 8, 12, FACE[state]);
+  ellipse(g, 8.5, 8.5, 4.8, 4.2, "b"); // head
+  ellipse(g, 10, 17.5, 7.5, 4.8, "b"); // body
+  rect(g, 15, 11, 2, 3, "b"); // front arm, reaching up to the coin
+  shade(g, { b: ["h", "B"] });
+  // A dark seam where the head meets the body, so they read as two parts.
+  for (let x = 0; x < 24; x += 1) if (g[13][x] !== "." && x < 14) g[13][x] = "o";
+  stamp(g, 16, 3, COIN);
+  stamp(g, 5, 7, MITE_FACE[state]);
   outline(g);
-  // Six stubby legs underneath.
-  [[6, 5], [9, 9], [12, 12]].forEach(([x0, x1]) => {
-    line(g, x0, 20, x1, 22, "o");
-    line(g, 24 - x0, 20, 24 - x1, 22, "o");
-  });
+  // Antennae
+  line(g, 6, 3, 4, 0, "o");
+  line(g, 11, 3, 12, 0, "o");
+  // Six bent legs, three on each side
+  [
+    [[2, 15], [0, 13]],
+    [[2, 18], [0, 19]],
+    [[3, 21], [1, 23]],
+    [[18, 15], [21, 13]],
+    [[18, 18], [21, 19]],
+    [[17, 21], [19, 23]],
+  ].forEach(([[x0, y0], [x1, y1]]) => line(g, x0, y0, x1, y1, "o"));
   return toRows(g);
 }
 
@@ -120,7 +149,7 @@ function puff(state) {
     stamp(g, 8, 12, FACE.happy);
   } else {
     stamp(g, 8, 10, ["k......k", ".k....k."]); // worried brows
-    stamp(g, 8, 12, state === "idle" ? ["kw....kw", "kk....kk", "........", "..o..o..", "...oo..."] : FACE.hit);
+    stamp(g, 8, 12, state === "idle" ? ["kw....kw", "kk....kk", "........", "...oo...", "..o..o.."] : FACE.hit);
   }
   outline(g);
   return toRows(g);
@@ -128,7 +157,7 @@ function puff(state) {
 
 const PALETTES = {
   "guesswork-gnat": { b: "#8fb8de", h: "#c3dcf1", B: "#6c96bf", g: "#e8f4fb", G: "#b5d3ea" },
-  "minimum-mite": { b: "#e7a07a", h: "#f5c6a6", B: "#c47b56", y: "#f4cf55", Y: "#c99a2e" },
+  "minimum-mite": { b: "#e7a07a", h: "#f5c6a6", B: "#c47b56", y: "#f4cf55", Y: "#d9ad3a", j: "#fff3b8", D: "#6b4a10" },
   "interest-imp": { b: "#c79ad6", h: "#e2c8ec", B: "#9f72b3", r: "#6a4a8a", R: "#4e3468" },
   "someday-snail": { b: "#a8c98a", h: "#cfe3b8", B: "#86a96a", s: "#c9a774", t: "#dcc293", S: "#9a7a50", p: "#7a5c3b" },
   "hype-hornet": { b: "#e0b25c", h: "#f2d48c", B: "#b88a3a", z: "#3a2e1e", g: "#eef6f8", G: "#c3dbe0" },
