@@ -38,6 +38,9 @@ export function useGameStore(id, { termKeys = [] } = {}) {
   const [progress, setProgress] = useState(() => load(id));
   const ref = useRef(progress);
   const loadedFor = useRef(id);
+  // Which account's save is in `progress`. The game only reports ready once that matches, so nothing
+  // ever acts on default settings during the moment between sign-in and loading the save.
+  const [loadedId, setLoadedId] = useState(id);
   const [feed, setFeed] = useState([]);
   const ctx = useRef({ termKeys });
   ctx.current = { termKeys };
@@ -48,6 +51,7 @@ export function useGameStore(id, { termKeys = [] } = {}) {
     loadedFor.current = id;
     ref.current = load(id);
     setProgress(ref.current);
+    setLoadedId(id);
     setFeed([]);
   }, [id]);
 
@@ -83,7 +87,7 @@ export function useGameStore(id, { termKeys = [] } = {}) {
   return useMemo(
     () => ({
       id,
-      ready: Boolean(id),
+      ready: Boolean(id) && loadedId === id,
       progress,
       info: levelInfo(progress.xp),
       streakNow: currentStreak(progress.streak, weekNumber()),
@@ -95,6 +99,6 @@ export function useGameStore(id, { termKeys = [] } = {}) {
       feed,
       takeFeed,
     }),
-    [id, progress, dispatch, learnTerm, checkIn, setSetting, feed, takeFeed]
+    [id, loadedId, progress, dispatch, learnTerm, checkIn, setSetting, feed, takeFeed]
   );
 }

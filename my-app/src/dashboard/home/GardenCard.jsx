@@ -147,9 +147,9 @@ function GardenPicture({ garden }) {
 
 /**
  * The garden preview: a picture from the player's real numbers and learning, a plain description, and
- * every element with its number one tap away. Garden mode will add "Visit your garden" here once it exists.
+ * every element with its number one tap away, and a way into Garden mode.
  */
-export default function GardenCard({ profile, metrics, plan, healthScore, learned, wordTotal, className = "", style }) {
+export default function GardenCard({ profile, metrics, plan, healthScore, learned, wordTotal, onVisit, className = "", style }) {
   const garden = useMemo(
     () => deriveGarden({ profile, m: metrics, plan, healthScore, learned, wordTotal }),
     [profile, metrics, plan, healthScore, learned, wordTotal]
@@ -160,6 +160,11 @@ export default function GardenCard({ profile, metrics, plan, healthScore, learne
         <h2 id="hm-garden-title" className="ps-h3">Your garden</h2>
         <span className="hm-chip hm-chip--plain">{profile.fromSurvey ? "Grows from your numbers" : "Sample numbers"}</span>
       </div>
+      {onVisit && (
+        <button type="button" className="ps-btn ps-btn--secondary ps-btn--sm hm-garden__visit" onClick={onVisit}>
+          Visit your garden <span aria-hidden>→</span>
+        </button>
+      )}
       <figure className="hm-garden__figure">
         <GardenPicture garden={garden} />
         <figcaption className="ps-small">{garden.description}</figcaption>

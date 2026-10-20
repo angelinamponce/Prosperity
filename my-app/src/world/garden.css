@@ -1,0 +1,65 @@
+/* Garden mode: the town on the world screen and the guide on the touch screen. */
+
+.gw { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; background: #24382b; }
+.gw__stage { position: relative; }
+.gw__ground { position: absolute; inset: 0; image-rendering: pixelated; }
+/* Buildings and Sprout live on a 384 x 240 layer scaled to match the ground exactly. */
+.gw__layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+.gw-bld, .gw-plot {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  overflow: visible;
+}
+.gw-bld__art { position: relative; display: block; image-rendering: pixelated; transition: transform 120ms steps(2, jump-none); }
+.gw-bld__shadow { position: absolute; left: 4px; top: 14px; right: -4px; bottom: -3px; background: rgba(25, 50, 30, 0.28); }
+.gw-bld:hover .gw-bld__art, .gw-bld:focus-visible .gw-bld__art { transform: translateY(-1px); }
+.px-root .gw-bld:focus-visible, .px-root .gw-plot:focus-visible { outline: 2px solid #ffffff; outline-offset: 1px; box-shadow: 0 0 0 3px var(--ps-brand-700); }
+
+/* A small pixel name tag that appears above a place on hover or focus. */
+.gw-tag {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 1px);
+  transform: translateX(-50%);
+  padding: 0 3px;
+  border: 1px solid var(--px-frame);
+  background: var(--px-paper);
+  color: var(--px-ink);
+  font-family: var(--px-font);
+  font-size: 7px;
+  line-height: 9px;
+  white-space: nowrap;
+  pointer-events: none;
+  visibility: hidden;
+}
+.gw-bld:hover .gw-tag, .gw-bld:focus-visible .gw-tag, .gw-plot:hover .gw-tag, .gw-plot:focus-visible .gw-tag { visibility: visible; }
+.gw-plot .gw-tag { bottom: auto; top: -10px; }
+
+.gw-sprout { position: absolute; width: 16px; height: 16px; pointer-events: none; }
+.gw-sprout svg { width: 16px; height: 16px; }
+
+/* Touch screen */
+.gw-panel { display: flex; flex-direction: column; gap: 5px; min-height: 0; height: 100%; overflow-y: auto; }
+/* A compact text box so the whole town guide fits on the touch screen. */
+.gw-panel .tb { min-height: 0; padding: 8px 12px 9px; }
+.gw-panel .tb--pixel .tb__text { font-size: clamp(0.9rem, 1.9vw, 1rem); line-height: 1.4; }
+.gw-where { display: flex; align-items: center; gap: 6px; font-family: var(--ps-font); font-size: 0.82rem; color: var(--px-ink-2); }
+.gw-where .anticon { color: var(--px-frame); }
+.gw-panel__title { font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--px-ink-2); }
+.gw-goto { gap: 5px; }
+.gw-goto .lm__item { min-height: 0; padding-top: 5px; padding-bottom: 5px; }
+.gw-goto .lm__label { font-size: 0.92rem; line-height: 1.2; }
+.gw-goto .lm__sub { text-transform: none; letter-spacing: 0; font-family: var(--ps-font); font-size: 0.72rem; }
+
+/* The Classic View switch stands out on the dark hinge. */
+.px-root .hh-btn--light { background: var(--px-paper); color: var(--px-ink); border-color: #0e1611; font-weight: 600; }
+.px-root .hh-btn--light:hover { background: #ffffff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gw-bld__art { transition: none; }
+  .gw-bld:hover .gw-bld__art, .gw-bld:focus-visible .gw-bld__art { transform: none; }
+}

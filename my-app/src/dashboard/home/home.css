@@ -10,6 +10,29 @@
 .hm-hello__bar { flex: 1; height: 10px; }
 .hm-hello__xp .ps-small { white-space: nowrap; color: var(--ps-ink-2); font-weight: 500; }
 
+/* "Play in Garden mode": friendly and easy to spot, with pixel Sprout peeking out. */
+.ps-root .hm-garden-switch {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: var(--ps-space-1);
+  padding: 4px 16px 4px 6px;
+  border: 2px solid var(--ps-brand-600);
+  border-radius: var(--ps-radius-full);
+  background: var(--ps-surface);
+  color: var(--ps-brand-800);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--ps-brand-600);
+  transition: transform var(--ps-fast) var(--ps-ease), box-shadow var(--ps-fast) var(--ps-ease);
+}
+.ps-root .hm-garden-switch:hover { background: var(--ps-brand-50); }
+.ps-root .hm-garden-switch:active { transform: translateY(3px); box-shadow: none; }
+.hm-garden-switch__peek { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #7cbb6e; overflow: hidden; }
+.hm-garden-switch__peek svg { transform: translateY(5px); image-rendering: pixelated; }
+.hm-garden__visit { align-self: flex-start; margin-bottom: var(--ps-space-3); }
+
 /* Reward and time chips: sage outlines, never a new color. */
 .hm-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: var(--ps-radius-full); border: 1px solid var(--ps-brand-300); background: var(--ps-brand-50); color: var(--ps-brand-700); font-size: var(--ps-text-xs); font-weight: 600; white-space: nowrap; }
 .hm-chip--plain { border-color: var(--ps-border); background: var(--ps-surface); color: var(--ps-ink-2); font-weight: 500; }

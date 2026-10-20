@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRightOutlined, CheckOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import { PixelArt } from "../../world/PixelArt";
+import { SPROUT_FRONT, SPROUT_PALETTE } from "../../world/sprites";
 import { AnimatedNumber, Button, Calc, StageIcon } from "../../design";
 import { XpBar, useGame } from "../../game";
 import { SproutMascot } from "../../sprout";
@@ -12,7 +14,7 @@ function greeting(now = new Date()) {
 }
 
 /** "Good morning, Sam", with Sprout's stage, level and an XP bar that always shows its numbers. */
-export function Greeting({ name }) {
+export function Greeting({ name, onGarden }) {
   const game = useGame();
   const first = name?.split(" ")[0];
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -32,6 +34,15 @@ export function Greeting({ name }) {
         <p className="ps-eyebrow">{today}</p>
         <h1 className="ps-h1">{first ? `${greeting()}, ${first}` : `${greeting()}!`}</h1>
         <p className="ps-body">Here's one small step for today, and your plan in plain English.</p>
+        {onGarden && (
+          <button type="button" className="hm-garden-switch" onClick={onGarden}>
+            <span className="hm-garden-switch__peek" aria-hidden>
+              <PixelArt rows={SPROUT_FRONT} palette={SPROUT_PALETTE} size={28} />
+            </span>
+            Play in Garden mode
+            <ArrowRightOutlined aria-hidden />
+          </button>
+        )}
         {info && (
           <div className="hm-hello__xp">
             <span className="hm-hello__level">Level {info.level}</span>

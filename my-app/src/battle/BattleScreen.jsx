@@ -34,7 +34,7 @@ function numbersLine(q, fromSurvey) {
   return read(`${source}: ${q.numbers.map((n) => `${n.label} ${n.value}`).join(" · ")}`);
 }
 
-function Battle({ game, profile, metrics, query, given, demo, onExit, onAgain, onSignUp }) {
+function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit, onAgain, onSignUp }) {
   const [setup] = useState(
     () =>
       given ??
@@ -241,7 +241,7 @@ function Battle({ game, profile, metrics, query, given, demo, onExit, onAgain, o
           items={
             demo
               ? [{ key: "signup", label: "Plant your first seed", sub: "See your own plan" }, { key: "home", label: "Back to home" }]
-              : [{ key: "again", label: "Battle again" }, { key: "quizzes", label: "Back to quizzes" }]
+              : [{ key: "again", label: "Battle again" }, { key: "quizzes", label: fromGarden ? "Back to town" : "Back to quizzes" }]
           }
           onSelect={(k) => (k === "again" ? onAgain() : k === "signup" ? onSignUp() : onExit())}
         />
@@ -322,6 +322,8 @@ function Battle({ game, profile, metrics, query, given, demo, onExit, onAgain, o
 export default function BattleScreen({ profile, metrics, go, navigate, query, setup }) {
   // ?demo=1: the one-question battle from the landing page. It returns there instead of to Quizzes.
   const demo = query?.get("demo") === "1";
+  // Battles started from a Greenhouse in Garden mode lead back to town.
+  const fromGarden = query?.get("from") === "garden";
   const game = useGame();
   const [round, setRound] = useState(0);
   if (!game?.ready) {
@@ -340,7 +342,8 @@ export default function BattleScreen({ profile, metrics, go, navigate, query, se
       query={query}
       given={round === 0 ? setup : undefined}
       demo={demo}
-      onExit={() => (demo ? navigate("/") : go("quiz"))}
+      fromGarden={fromGarden}
+      onExit={() => (demo ? navigate("/") : go(fromGarden ? "garden" : "quiz"))}
       onAgain={() => setRound((r) => r + 1)}
       onSignUp={() => navigate("/signup")}
     />

@@ -119,7 +119,7 @@ export default function Overview({ profile, metrics: m, plan, go }) {
 
   return (
     <>
-      <Greeting name={profile.name} />
+      <Greeting name={profile.name} onGarden={() => go("garden")} />
       <div className="db-grid">
         {quest && <TodaysQuest quest={quest} go={go} className="span-7 ps-enter" style={{ "--i": 1 }} />}
         <SummaryStrip sentences={sentences} fromSurvey={profile.fromSurvey} className={`${quest ? "span-5" : "span-12"} ps-enter`} style={{ "--i": 2 }} />
@@ -138,6 +138,7 @@ export default function Overview({ profile, metrics: m, plan, go }) {
             healthScore={grade.score}
             learned={game?.ready ? Object.keys(game.progress.terms).length : 0}
             wordTotal={WORDS.length}
+            onVisit={() => go("garden")}
             className="span-7 ps-enter"
           />
         </Suspense>

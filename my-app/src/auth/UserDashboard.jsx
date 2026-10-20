@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AppstoreOutlined, CreditCardOutlined, FlagOutlined, FormOutlined, LineChartOutlined, QuestionCircleOutlined, RiseOutlined, SwapOutlined, TrophyOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, LogoMark, Sprout } from "../design";
@@ -33,6 +33,8 @@ const PAGES = [
   { path: "future", label: "Future", icon: <RiseOutlined />, Component: lazy(() => import("../dashboard/pages/Future")) },
   { path: "goals", label: "Goals", icon: <FlagOutlined />, Component: lazy(() => import("../dashboard/pages/Goals")) },
   { path: "quiz", label: "Quizzes", icon: <FormOutlined />, dataFree: true, Component: lazy(() => import("../dashboard/pages/Quiz")) },
+  // Garden mode: the town. Full screen, reached from the "Play in Garden mode" switch.
+  { path: "garden", label: "Garden mode", nav: false, tab: false, fullscreen: true, dataFree: true, Component: lazy(() => import("../world/GardenWorld")) },
   // Full screen, reached from the Quizzes page rather than the nav.
   { path: "battle", label: "Quiz battle", nav: false, tab: false, fullscreen: true, Component: lazy(() => import("../battle/BattleScreen")) },
   // Not in the phone tab bar (it would be crowded); the level chip in the top bar links here instead.
@@ -129,6 +131,15 @@ export default function UserDashboard() {
   useEffect(() => {
     if (game.ready && mode === "own") dispatch({ type: "surveyDone" });
   }, [game.ready, mode, dispatch]);
+  // Someone who chose Garden mode opens into it, but only when first arriving on the Overview. Direct links
+  // (and places entered from town) always show the Classic page. Classic View is the default.
+  const viewChecked = useRef(false);
+  useEffect(() => {
+    if (!game.ready || viewChecked.current) return;
+    viewChecked.current = true;
+    if (page.path === "" && game.progress.settings.view === "garden") navigate(`${BASE}/garden`, { replace: true });
+  }, [game.ready, game.progress.settings.view, page.path, navigate]);
+
   // Finishing the last step earns XP; skipping simply closes the tour.
   const closeTour = () => {
     if (tutorial.step >= steps.length - 1) dispatch({ type: "tourDone" });
