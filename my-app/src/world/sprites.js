@@ -52,3 +52,12 @@ export const SPROUT_FRAMES = Object.fromEntries(Object.entries(FACES).map(([dir,
 
 // The standing, front-facing Sprout (used on the dashboard switch).
 export const SPROUT_FRONT = SPROUT_FRAMES.down[0];
+
+// Battle poses, seen from behind: standing, mid-step (for the lunge), and a wilt with drooping leaves.
+// The wilt is cosmetic and brief: Sprout perks right back up.
+const DROOP = ["................", "................", ".kkk...ss...kkk.", "kLlLkkksskkkLlLk"];
+export const SPROUT_BATTLE = {
+  idle: SPROUT_FRAMES.up[0],
+  step: SPROUT_FRAMES.up[1],
+  wilt: [...DROOP, ...SPROUT_FRAMES.up[0].slice(4)],
+};

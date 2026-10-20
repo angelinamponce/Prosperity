@@ -131,3 +131,18 @@ test("the landing page demo: one question, then sign-up or back home", () => {
   expect(navigate).toHaveBeenCalledWith("/");
   expect(go).not.toHaveBeenCalled();
 });
+
+test("a level-up and a new badge are announced inside the battle", () => {
+  localStorage.setItem(gameKey("tester"), JSON.stringify({ xp: 95, settings: { instantText: true } })); // 5 XP short of level 3
+  render(<Harness go={jest.fn()} />);
+  continueToMenu();
+  answerWith(Q1.choices[Q1.correct]);
+  const said = [];
+  for (let i = 0; i < 20 && !screen.queryByRole("menu"); i += 1) {
+    said.push(document.querySelector(".tb .ps-sr-only").textContent);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  }
+  expect(said).toContain("Sprout grew to level 3!");
+  expect(said).toContain("You earned the Good Question badge!");
+  expect(screen.getByText("Lv 3")).toBeInTheDocument();
+});

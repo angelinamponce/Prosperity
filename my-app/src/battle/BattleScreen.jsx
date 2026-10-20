@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatedNumber, prefersReducedMotion } from "../design";
 import { useGame } from "../game/store";
-import { answerXpPreview } from "../game/rules";
+import { BADGES, answerXpPreview } from "../game/rules";
 import { BANK } from "../quiz/bank";
 import { DIFFICULTY, TOPICS } from "../quiz/topics";
 import { seededRandom, selectQuestions } from "../quiz/select";
 import { answer, askSprout, assistsFor, currentQuestion, next, resolveQuestion, startSession, summary, takeHint } from "../quiz/session";
-import { SproutMascot } from "../sprout";
 import { HandheldFrame } from "../world/HandheldFrame";
 import { ListMenu } from "../world/ListMenu";
 import { TextBox } from "../world/TextBox";
+import { PixelArt } from "../world/PixelArt";
+import { SPROUT_BATTLE, SPROUT_PALETTE } from "../world/sprites";
 import { pickFoe } from "./foes";
 import { FoeSprite } from "./sprites";
 import "./battle.css";
@@ -24,6 +25,10 @@ export function setupBattle({ quiz, level, topic, ctx, count = STRENGTH, now = D
   const picked = selectQuestions(BANK, quiz, { count, topic: t, level, now, rng });
   return { topic: t, foe: pickFoe(t, rng), questions: picked.map((q) => resolveQuestion(q, ctx, now % 100000)) };
 }
+
+// A small pixel sparkle for a hit.
+const SPARK = ["....s....", "....s....", ".s..w..s.", "..s.w.s..", "sswwwwwss", "..s.w.s..", ".s..w..s.", "....s....", "....s...."];
+const SPARK_PALETTE = { w: "#ffffff", s: "#d7f0c8" };
 
 const say = (text, extra) => ({ text, font: "pixel", ...extra });
 const read = (text, extra) => ({ text, font: "read", ...extra });
@@ -60,6 +65,36 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
   const assists = q ? assistsFor(session, q.id) : { hint: false, sprout: false };
   const preview = q ? answerXpPreview(game.progress, q, assists, Date.now()) : null;
   const { info } = game;
+
+  // Poses follow the action: the foe squeezes its eyes shut when hit, Sprout steps into its lunge or
+  // wilts for a moment, then both return to standing.
+  const [posing, setPosing] = useState(false);
+  useEffect(() => {
+    if (!fx.kind) return undefined;
+    setPosing(true);
+    const t = setTimeout(() => setPosing(false), fx.kind === "wilt" ? 1100 : 560);
+    return () => clearTimeout(t);
+  }, [fx.n, fx.kind]);
+  const foeState = ending === "befriended" ? "happy" : posing && fx.kind === "hit" ? "hit" : "idle";
+  const sproutPose = posing && fx.kind === "wilt" ? "wilt" : posing && fx.kind === "hit" ? "step" : "idle";
+
+  // Level-ups and new badges are announced right here in the battle (the dashboard toasts stay quiet).
+  const [glow, setGlow] = useState(0);
+  const seen = useRef({ level: info.level, badges: Object.keys(game.progress.badges).length });
+  useEffect(() => {
+    const extra = [];
+    if (info.level > seen.current.level) {
+      extra.push(say(`Sprout grew to level ${info.level}!`));
+      setGlow((n) => n + 1);
+    }
+    const earned = BADGES.filter((b) => game.progress.badges[b.id]);
+    if (earned.length > seen.current.badges) {
+      const newest = [...earned].sort((a, b) => game.progress.badges[b.id].at - game.progress.badges[a.id].at)[0];
+      extra.push(say(`You earned the ${newest.name} badge!`));
+    }
+    seen.current = { level: info.level, badges: earned.length };
+    if (extra.length) setTalk((t) => ({ ...t, lines: [...t.lines, ...extra] }));
+  }, [info.level, game.progress.badges]);
 
   // P pauses anywhere; Esc pauses from the command menu.
   useEffect(() => {
@@ -168,17 +203,24 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
         <span className="bt-plate__num">Strength {strength}/{setup.questions.length}</span>
       </div>
       <div className="bt-pad bt-pad--foe" aria-hidden />
-      <div className="bt-foe" aria-hidden>
+      <div className="bt-foe bt-enter-foe" aria-hidden>
         <div key={`foe-${fx.n}`} className={`bt-foe__body${fx.kind === "hit" ? " fx-hit" : ""}`}>
-          <FoeSprite foe={foe} size={128} />
+          <FoeSprite foe={foe} size={128} state={foeState} />
         </div>
+        {/* Shown only for the moment of the hit, so it also disappears when animations are off. */}
+        {fx.kind === "hit" && posing && (
+          <span key={`spark-${fx.n}`} className="bt-spark">
+            <PixelArt rows={SPARK} palette={SPARK_PALETTE} size={36} />
+          </span>
+        )}
       </div>
 
       <div className="bt-pad bt-pad--sprout" aria-hidden />
-      <div className="bt-sprout" aria-hidden>
-        <div key={`sp-${fx.n}`} className={`bt-sprout__body${fx.kind === "hit" ? " fx-lunge" : fx.kind === "wilt" ? " fx-wilt" : ""}`}>
-          <SproutMascot variant="full" size={96} mood={ending === "befriended" ? "cheer" : "idle"} />
+      <div className="bt-sprout bt-enter-sprout" aria-hidden>
+        <div key={`sp-${fx.n}`} className={`bt-sprout__body${fx.kind === "hit" ? " fx-lunge" : fx.kind === "wilt" ? " fx-wilt" : ""}${ending === "befriended" ? " is-cheer" : ""}`}>
+          <PixelArt rows={SPROUT_BATTLE[sproutPose]} palette={SPROUT_PALETTE} size={96} />
         </div>
+        {glow > 0 && <span key={`lv-${glow}`} className="bt-levelup" />}
       </div>
       <div className="bt-plate bt-plate--sprout">
         <div className="bt-plate__row">

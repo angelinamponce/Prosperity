@@ -181,7 +181,7 @@ export default function UserDashboard() {
           <Suspense fallback={<div className="ps-root"><PageSkeleton /></div>}>
             <Component profile={profile} metrics={metrics} plan={plan} setPlan={setPlan} go={go} navigate={navigate} query={new URLSearchParams(location.search)} />
           </Suspense>
-          <GameFeed />
+          <GameFeed quiet={page.path === "battle"} />
         </SproutProvider>
       </GameContext.Provider>
     );

@@ -116,7 +116,8 @@ function StageUpDialog({ from, to, level, onClose }) {
 }
 
 /** Turns game events into toasts and Sprout's growth celebration. Render once inside the game screen. */
-export function GameFeed() {
+// `quiet`: no toasts (a battle announces XP, levels and badges in its own text box); growth dialogs still show.
+export function GameFeed({ quiet = false }) {
   const game = useGame();
   const { celebrate, celebration } = useCelebration();
   const [stageUp, setStageUp] = useState(null);
@@ -132,10 +133,10 @@ export function GameFeed() {
     const big = events.find((e) => e.type === "stageUp");
     const notable = events.some((e) => e.type === "badge" || e.type === "levelUp");
     // New words and quiz answers show their XP right where they happen, so they only get a toast for a badge or level.
-    if (!QUIET_SOURCES.includes(source) || notable || big) celebrate({ message: summarize(events) });
+    if (!quiet && (!QUIET_SOURCES.includes(source) || notable || big)) celebrate({ message: summarize(events) });
     if (big) setStageUp({ ...big, level: events.find((e) => e.type === "levelUp")?.level });
     game.takeFeed(batch.id);
-  }, [batch, celebrate, game]);
+  }, [batch, celebrate, game, quiet]);
 
   return (
     <>

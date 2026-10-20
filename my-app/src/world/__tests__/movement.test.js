@@ -90,3 +90,11 @@ test("every walking frame is a clean 16 x 16 grid", () => {
     }
   }
 });
+
+test("Sprout's battle poses are clean 16 x 16 grids", () => {
+  const { SPROUT_BATTLE } = require("../sprites");
+  for (const pose of Object.values(SPROUT_BATTLE)) {
+    expect(pose).toHaveLength(16);
+    for (const row of pose) expect(row).toHaveLength(16);
+  }
+});
