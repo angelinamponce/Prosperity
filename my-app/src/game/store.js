@@ -82,6 +82,7 @@ export function useGameStore(id, { termKeys = [] } = {}) {
 
   return useMemo(
     () => ({
+      id,
       ready: Boolean(id),
       progress,
       info: levelInfo(progress.xp),

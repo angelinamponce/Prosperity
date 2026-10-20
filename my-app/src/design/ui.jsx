@@ -105,8 +105,10 @@ export function Delta({ value, format, goodWhen = "up" }) {
 export function AnimatedNumber({ value, format, duration, className }) {
   const shown = useCountUp(value, duration);
   return (
-    <span className={cx("ps-num", className)} aria-label={format(value)}>
+    <span className={cx("ps-num", className)}>
+      {/* Screen readers get the final value once, not every in-between number. */}
       <span aria-hidden>{format(shown)}</span>
+      <span className="ps-sr-only">{format(value)}</span>
     </span>
   );
 }

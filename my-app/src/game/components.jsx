@@ -82,7 +82,8 @@ function summarize(events) {
   const parts = [`+${total} XP`];
   if (main) parts.push(main);
   if (badges.length) parts.push(`Badge earned: ${badges.join(", ")}`);
-  let text = parts.join(" · ");
+  const level = events.find((e) => e.type === "levelUp");
+  let text = `${level ? `Level ${level.level}! ` : ""}${parts.join(" · ")}`;
   if (events.some((e) => e.type === "freezeUsed")) text += ". A streak freeze covered the week you missed.";
   else if (events.some((e) => e.type === "welcomeBack")) text += ". Welcome back! A fresh streak starts today.";
   return text;

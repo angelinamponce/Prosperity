@@ -155,7 +155,7 @@ export function StreakCard({ style }) {
             <span key={i} className={i >= 6 - Math.min(6, streakNow) ? "is-on" : ""} />
           ))}
         </div>
-        <p className="hm-pcard__big">{streakNow} <span>{streakNow === 1 ? "week" : "weeks"}</span></p>
+        <p className="hm-pcard__big"><AnimatedNumber value={streakNow} format={(v) => String(Math.round(v))} /> <span>{streakNow === 1 ? "week" : "weeks"}</span></p>
       </div>
       <p className="ps-small hm-pcard__note">
         {checkedInThisWeek && <span className="hm-ok"><CheckOutlined aria-hidden /> Checked in this week. </span>}
@@ -238,7 +238,7 @@ export function WordsCounter({ total, go, className = "", style }) {
   return (
     <section className={`ps-card hm-words ${className}`} style={style} aria-labelledby="hm-words-title">
       <h2 id="hm-words-title" className="ps-h3">Money words</h2>
-      <p className="hm-pcard__big">{learned} <span>of {total} learned</span></p>
+      <p className="hm-pcard__big"><AnimatedNumber value={learned} format={(v) => String(Math.round(v))} /> <span>of {total} learned</span></p>
       <div className="hm-topics__bar hm-words__bar" aria-hidden><span style={{ width: `${(learned / total) * 100}%` }} /></div>
       <p className="ps-small">Each word you learn plants a flower in your garden.</p>
       <Button variant="secondary" size="sm" onClick={() => go("progress")}>{learned < total ? "Learn a word" : "See all words"}</Button>

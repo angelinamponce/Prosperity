@@ -82,6 +82,30 @@ export default function Overview({ profile, metrics: m, plan, go }) {
   ];
   const lowest = [...grade.parts].sort((a, b) => a.score - b.score).slice(0, 2).map((p) => p.key);
   const game = useGame();
+
+  // A small leaf burst from Sprout on the first visit each day. No XP, no sound; skipped with reduced motion.
+  useEffect(() => {
+    if (!game?.ready) return undefined;
+    const key = `prosperity.daily.v1.${game.id}`;
+    const today = new Date().toDateString();
+    let seen = true;
+    try {
+      seen = localStorage.getItem(key) === today;
+    } catch {
+      // No storage: skip it rather than repeat it on every visit.
+    }
+    if (seen) return undefined;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(key, today);
+      } catch {
+        // ignore
+      }
+      celebrate({ origin: document.querySelector(".hm-hello__sprout") });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [game?.ready, game?.id, celebrate]);
+
   const sentences = useMemo(() => planSummary(profile, m, plan), [profile, m, plan]);
   const quest =
     game?.ready &&

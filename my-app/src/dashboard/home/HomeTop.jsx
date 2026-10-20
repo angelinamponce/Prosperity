@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRightOutlined, CheckOutlined, ClockCircleOutlined } from "@ant-design/icons";
-import { Button, Calc, StageIcon } from "../../design";
+import { AnimatedNumber, Button, Calc, StageIcon } from "../../design";
 import { XpBar, useGame } from "../../game";
 import { SproutMascot } from "../../sprout";
 import "./home.css";
@@ -36,7 +36,9 @@ export function Greeting({ name }) {
           <div className="hm-hello__xp">
             <span className="hm-hello__level">Level {info.level}</span>
             <XpBar info={info} className="hm-hello__bar" />
-            <span className="ps-num ps-small">{info.maxed ? "Top level" : `${info.intoLevel}/${info.levelSize} XP`}</span>
+            <span className="ps-num ps-small">
+              {info.maxed ? "Top level" : <><AnimatedNumber value={info.intoLevel} format={(v) => String(Math.round(v))} />/{info.levelSize} XP</>}
+            </span>
           </div>
         )}
       </div>
