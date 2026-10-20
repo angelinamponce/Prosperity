@@ -18,10 +18,10 @@ import "./battle.css";
 export const STRENGTH = 3;
 
 /** Picks a topic (the requested one, or what the player most needs), a Misconception, and its questions. */
-export function setupBattle({ quiz, level, topic, ctx, now = Date.now() }) {
+export function setupBattle({ quiz, level, topic, ctx, count = STRENGTH, now = Date.now() }) {
   const rng = seededRandom(now);
   const t = TOPICS[topic] ? topic : selectQuestions(BANK, quiz, { count: 1, level, now, rng })[0]?.topic ?? "budgeting";
-  const picked = selectQuestions(BANK, quiz, { count: STRENGTH, topic: t, level, now, rng });
+  const picked = selectQuestions(BANK, quiz, { count, topic: t, level, now, rng });
   return { topic: t, foe: pickFoe(t, rng), questions: picked.map((q) => resolveQuestion(q, ctx, now % 100000)) };
 }
 
@@ -34,9 +34,11 @@ function numbersLine(q, fromSurvey) {
   return read(`${source}: ${q.numbers.map((n) => `${n.label} ${n.value}`).join(" · ")}`);
 }
 
-function Battle({ game, profile, metrics, query, given, onExit, onAgain }) {
+function Battle({ game, profile, metrics, query, given, demo, onExit, onAgain, onSignUp }) {
   const [setup] = useState(
-    () => given ?? setupBattle({ quiz: game.progress.quiz, level: game.info.level, topic: query?.get("topic"), ctx: { profile, metrics } })
+    () =>
+      given ??
+      setupBattle({ quiz: game.progress.quiz, level: game.info.level, topic: query?.get("topic"), ctx: { profile, metrics }, count: demo ? 1 : STRENGTH })
   );
   const { foe } = setup;
   const instant = Boolean(game.progress.settings.instantText) || Boolean(prefersReducedMotion());
@@ -44,7 +46,7 @@ function Battle({ game, profile, metrics, query, given, onExit, onAgain }) {
   const [strength, setStrength] = useState(setup.questions.length);
   const opening = (q) => (q?.myth ? [say(`“${q.myth}”`, { speaker: foe.name })] : []);
   const [talk, setTalk] = useState(() => ({
-    lines: [say(`${foe.name} ${foe.intro}`), ...opening(currentQuestion(session))],
+    lines: [...(demo ? [say("Here's a one-question practice battle. No account needed!", { speaker: "Sprout" })] : []), say(`${foe.name} ${foe.intro}`), ...opening(currentQuestion(session))],
     i: 0,
     then: "menu",
   }));
@@ -236,8 +238,12 @@ function Battle({ game, profile, metrics, query, given, onExit, onAgain }) {
         <ListMenu
           label="What next?"
           columns={2}
-          items={[{ key: "again", label: "Battle again" }, { key: "quizzes", label: "Back to quizzes" }]}
-          onSelect={(k) => (k === "again" ? onAgain() : onExit())}
+          items={
+            demo
+              ? [{ key: "signup", label: "Plant your first seed", sub: "See your own plan" }, { key: "home", label: "Back to home" }]
+              : [{ key: "again", label: "Battle again" }, { key: "quizzes", label: "Back to quizzes" }]
+          }
+          onSelect={(k) => (k === "again" ? onAgain() : k === "signup" ? onSignUp() : onExit())}
         />
       </>
     );
@@ -311,9 +317,11 @@ function Battle({ game, profile, metrics, query, given, onExit, onAgain }) {
 
 /**
  * Quiz Battles. Runs the same quiz session, questions and progress as the Classic quiz page, shown as a
- * turn-based battle. `query` may carry ?topic=; `setup` overrides the questions (tests, Greenhouse keepers).
+ * turn-based battle. `query` may carry ?topic= or ?demo=1; `setup` overrides the questions (tests, Greenhouse keepers).
  */
-export default function BattleScreen({ profile, metrics, go, query, setup }) {
+export default function BattleScreen({ profile, metrics, go, navigate, query, setup }) {
+  // ?demo=1: the one-question battle from the landing page. It returns there instead of to Quizzes.
+  const demo = query?.get("demo") === "1";
   const game = useGame();
   const [round, setRound] = useState(0);
   if (!game?.ready) {
@@ -331,8 +339,10 @@ export default function BattleScreen({ profile, metrics, go, query, setup }) {
       metrics={metrics}
       query={query}
       given={round === 0 ? setup : undefined}
-      onExit={() => go("quiz")}
+      demo={demo}
+      onExit={() => (demo ? navigate("/") : go("quiz"))}
       onAgain={() => setRound((r) => r + 1)}
+      onSignUp={() => navigate("/signup")}
     />
   );
 }

@@ -14,12 +14,12 @@ const Q1 = resolveQuestion(BANK.find((q) => q.id === "debt-minimum-only"), ctx, 
 const Q2 = resolveQuestion(BANK.find((q) => q.id === "debt-lower-apr"), ctx, 1);
 const setup = { topic: "debt", foe: foeById("minimum-mite"), questions: [Q1, Q2] };
 
-function Harness({ go }) {
+function Harness({ go, navigate = jest.fn(), query, battle = setup }) {
   const game = useGameStore("tester", { termKeys: [] });
   return (
     <GameContext.Provider value={game}>
       <span data-testid="xp">{game.progress.xp}</span>
-      <BattleScreen profile={sampleProfile} metrics={ctx.metrics} go={go} setup={setup} />
+      <BattleScreen profile={sampleProfile} metrics={ctx.metrics} go={go} navigate={navigate} query={query} setup={battle} />
     </GameContext.Provider>
   );
 }
@@ -112,4 +112,22 @@ test("pause freezes the battle and offers instant text and leaving", () => {
     fireEvent.click(menuItem("Resume"));
   });
   expect(screen.queryByRole("menu", { name: "Pause menu" })).not.toBeInTheDocument();
+});
+
+test("the landing page demo: one question, then sign-up or back home", () => {
+  const go = jest.fn();
+  const navigate = jest.fn();
+  render(<Harness go={go} navigate={navigate} query={new URLSearchParams("demo=1")} battle={{ ...setup, questions: [Q1] }} />);
+  expect(screen.getByText(/one-question practice battle/, { selector: ".ps-sr-only" })).toBeInTheDocument();
+  continueToMenu();
+  expect(screen.getByText("Strength 1/1")).toBeInTheDocument();
+  answerWith(Q1.choices[Q1.correct]);
+  for (let i = 0; i < 20 && !screen.queryByRole("menuitem", { name: /plant your first seed/i }); i += 1) {
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  }
+  fireEvent.click(screen.getByRole("menuitem", { name: /plant your first seed/i }));
+  expect(navigate).toHaveBeenCalledWith("/signup");
+  fireEvent.click(screen.getByRole("button", { name: "Leave" }));
+  expect(navigate).toHaveBeenCalledWith("/");
+  expect(go).not.toHaveBeenCalled();
 });

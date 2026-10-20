@@ -9,6 +9,7 @@ import {
   CommentOutlined,
   CreditCardOutlined,
   DownOutlined,
+  FlagOutlined,
   FormOutlined,
   MenuOutlined,
   RiseOutlined,
@@ -25,6 +26,7 @@ import {
   Waterfall,
   money,
   moneyShort,
+  pct,
   prefersReducedMotion,
   useReveal,
 } from "../design";
@@ -33,6 +35,9 @@ import { addMonths, buildRecommendations, computeMetrics, monteCarlo, simulatePa
 import { RecommendationList } from "../dashboard/components";
 import { debtFreeSummary, humanDuration } from "../dashboard/summaries";
 import HeroGarden from "./HeroGarden";
+import { XP } from "../game/rules";
+import { FoeSprite } from "../battle/sprites";
+import { FOES } from "../battle/foes";
 import Intro, { shouldPlayIntro } from "./Intro";
 import { SproutChat, SproutLauncher, SproutMascot, SproutProvider, SuggestedQuestions } from "../sprout";
 import "./landing.css";
@@ -262,9 +267,99 @@ function Hero({ ready }) {
 // ---------- Feature showcase (auto-advancing tabs) ----------
 
 const ROTATE_MS = 7000;
+const FUTURE = { monthly: 800, stockShare: 0.8, toAge: 60 };
 
-function ShowcasePreview({ which }) {
-  const recs = useMemo(() => buildRecommendations(profile, metrics, { extraDebt: 300 }), []);
+// The simulation is the heaviest thing on the page, so it runs once, the first time the Future tab shows.
+let futureSim = null;
+function getFutureSim() {
+  futureSim ??= monteCarlo({
+    start: metrics.invested,
+    monthly: FUTURE.monthly,
+    stockShare: FUTURE.stockShare,
+    years: FUTURE.toAge - profile.age,
+    goal: metrics.fiNumber,
+  });
+  return futureSim;
+}
+
+const roundTo = (v, step) => Math.round(v / step) * step;
+
+// Kept versus spent, as one bar with both numbers written on it.
+function KeepBar() {
+  const spent = metrics.income - metrics.surplus;
+  const keptShare = metrics.surplus / metrics.income;
+  return (
+    <div className="lp-keep" role="img" aria-label={`Of ${money(metrics.income)} a month, about ${money(spent)} is spent and ${money(metrics.surplus)} is kept.`}>
+      <span className="lp-keep__spent" style={{ flexGrow: 1 - keptShare }}>Spent {money(spent)}</span>
+      <span className="lp-keep__kept" style={{ flexGrow: keptShare }}>Kept {money(metrics.surplus)}</span>
+    </div>
+  );
+}
+
+// Each debt as a flag on the path, in the order this plan pays them off.
+function PayoffFlags() {
+  const order = useMemo(() => simulatePayoff(profile.debts, { extra: 300 }).payoffOrder, []);
+  return (
+    <ol className="lp-flags" aria-label="Payoff order with $300 extra a month">
+      {order.map((d) => (
+        <li key={d.name}>
+          <FlagOutlined aria-hidden />
+          <span className="lp-flags__name">{d.name}</span>
+          <span className="lp-flags__date">paid off {addMonths(NOW, d.month)}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// Cautious, typical and optimistic results from the simulation, on one line.
+function FutureRange() {
+  const { bands } = getFutureSim();
+  const last = bands.p50.length - 1;
+  const lo = bands.p10[last];
+  const mid = bands.p50[last];
+  const hi = bands.p90[last];
+  const at = (v) => `${((v - lo) / (hi - lo || 1)) * 100}%`;
+  return (
+    <div className="lp-range" role="img" aria-label={`By age ${FUTURE.toAge}: cautious ${moneyShort(lo)}, typical ${moneyShort(mid)}, optimistic ${moneyShort(hi)}.`}>
+      <div className="lp-range__track">
+        <span className="lp-range__dot" style={{ left: at(lo) }} />
+        <span className="lp-range__dot lp-range__dot--mid" style={{ left: at(mid) }} />
+        <span className="lp-range__dot" style={{ left: at(hi) }} />
+      </div>
+      <div className="lp-range__labels" aria-hidden>
+        <span>Cautious<br /><strong>{moneyShort(lo)}</strong></span>
+        <span className="lp-range__mid" style={{ left: `clamp(70px, ${at(mid)}, calc(100% - 70px))` }}>Typical<br /><strong>{moneyShort(mid)}</strong></span>
+        <span>Optimistic<br /><strong>{moneyShort(hi)}</strong></span>
+      </div>
+    </div>
+  );
+}
+
+// A one-line promise in plain English, worked out from the sample numbers, and a simple picture of it.
+function featurePromise(which, recs) {
+  if (which === "cash") {
+    return {
+      line: `You keep about ${money(roundTo(metrics.surplus, 50))} of the ${money(metrics.income)} that comes in each month.`,
+      visual: <KeepBar />,
+    };
+  }
+  if (which === "debt") {
+    return { line: debtFreeSummary(profile.debts, { extra: 300, now: NOW }).sentence, visual: <PayoffFlags /> };
+  }
+  if (which === "future") {
+    const sim = getFutureSim();
+    const typical = sim.bands.p50[sim.bands.p50.length - 1];
+    return {
+      line: `Investing ${money(FUTURE.monthly)} a month until ${FUTURE.toAge}, a typical result is about ${moneyShort(typical)}. Some futures land lower, some higher.`,
+      visual: <FutureRange />,
+      note: `Assumes about ${pct(sim.expectedReturn, 1)} average yearly growth after inflation for a mix of ${pct(FUTURE.stockShare)} stocks, with ups and downs. Not a promise.`,
+    };
+  }
+  return { line: `Start with one small move: ${recs[0].title.replace(/ \(.*\)$/, "").toLowerCase()}.`, visual: null };
+}
+
+function ShowcasePreview({ which, recs }) {
   const [openId, setOpenId] = useState(recs[0]?.id);
 
   if (which === "cash") {
@@ -274,7 +369,7 @@ function ShowcasePreview({ which }) {
       { key: "debt", label: "Debt", value: metrics.minDebt, kind: "out", color: "var(--ps-series-muted)" },
       { key: "left", label: "Left over", value: metrics.surplus, kind: "result", color: "var(--ps-brand-700)" },
     ];
-    return <Waterfall steps={steps} base={metrics.income} height={300} ariaLabel="Sample monthly cash flow" />;
+    return <Waterfall steps={steps} base={metrics.income} height={260} ariaLabel="Sample monthly cash flow" />;
   }
   if (which === "debt") {
     const base = simulatePayoff(profile.debts, { extra: 0, rollover: false });
@@ -287,13 +382,13 @@ function ShowcasePreview({ which }) {
           { key: "base", label: "Minimums only", color: "var(--ps-series-muted)", values: pad(base.balances), dashed: true },
           { key: "plan", label: "With $300 extra", color: "var(--ps-brand-500)", values: pad(plan.balances) },
         ]}
-        height={300}
+        height={240}
         ariaLabel="Sample debt payoff comparison"
       />
     );
   }
   if (which === "future") {
-    const sim = monteCarlo({ start: metrics.invested, monthly: 800, stockShare: 0.8, years: 34, goal: metrics.fiNumber });
+    const sim = getFutureSim();
     const { p10, p25, p50, p75, p90 } = sim.bands;
     return (
       <LineChart
@@ -305,7 +400,7 @@ function ShowcasePreview({ which }) {
         ]}
         ghosts={sim.paths}
         refLines={[{ y: metrics.fiNumber, label: `Financial independence · ${moneyShort(metrics.fiNumber)}` }]}
-        height={300}
+        height={240}
         ariaLabel="Sample simulated investment outcomes"
         tooltipRows={(i) => [
           { label: "optimistic", value: money(p90[i]) },
@@ -325,10 +420,36 @@ const FEATURES = [
   { key: "steps", icon: <BulbOutlined />, title: "Get your next best move", body: "Recommendations ranked by impact, each one showing the numbers behind it." },
 ];
 
+// A one-question practice battle that anyone can try, no account needed.
+function BattleTeaser() {
+  const foe = FOES.find((f) => f.id === "minimum-mite");
+  return (
+    <div className="ps-card lp-teaser ps-reveal" style={{ "--i": 2 }}>
+      <div className="lp-teaser__scene" aria-hidden>
+        <span className="lp-teaser__sprout"><SproutMascot variant="full" size={64} mood="wave" /></span>
+        <span className="lp-teaser__vs">VS</span>
+        <span className="lp-teaser__foe"><FoeSprite foe={foe} size={64} /></span>
+      </div>
+      <div className="lp-teaser__text">
+        <p className="ps-eyebrow">Quiz Battles</p>
+        <h3 className="ps-h3">Try a Quiz Battle</h3>
+        <p className="ps-body">
+          Help Sprout answer one quick money question and befriend a {foe.name}. No account needed, and wrong answers are just part of learning.
+        </p>
+      </div>
+      <Link to="/app/individual/battle?demo=1" className="ps-btn ps-btn--primary lp-teaser__btn">
+        Start a 1-question battle <ArrowRightOutlined />
+      </Link>
+    </div>
+  );
+}
+
 function Showcase() {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
   const [touched, setTouched] = useState(false);
+  const recs = useMemo(() => buildRecommendations(profile, metrics, { extraDebt: 300 }), []);
+  const baseId = useId();
 
   useEffect(() => {
     if (paused || touched || prefersReducedMotion()) return undefined;
@@ -337,6 +458,7 @@ function Showcase() {
   }, [active, paused, touched]);
 
   const f = FEATURES[active];
+  const promise = featurePromise(f.key, recs);
   return (
     <section className="lp-section" id="features">
       <div className="lp-section__head ps-reveal">
@@ -349,9 +471,11 @@ function Showcase() {
           {FEATURES.map((item, i) => (
             <button
               key={item.key}
+              id={`${baseId}-tab-${item.key}`}
               type="button"
               role="tab"
               aria-selected={i === active}
+              aria-controls={`${baseId}-panel`}
               className={`lp-feature${i === active ? " is-active" : ""}`}
               onClick={() => { setActive(i); setTouched(true); }}
             >
@@ -371,16 +495,22 @@ function Showcase() {
             </button>
           ))}
         </div>
-        <div className="ps-card lp-showcase__panel" role="tabpanel" aria-label={f.title}>
+        <div id={`${baseId}-panel`} className="ps-card lp-showcase__panel" role="tabpanel" aria-labelledby={`${baseId}-tab-${f.key}`}>
           <div className="lp-showcase__panel-head">
             <span className="ps-h3">{f.title}</span>
             <Badge>Sample</Badge>
           </div>
           <div key={f.key} className="lp-showcase__swap">
-            <ShowcasePreview which={f.key} />
+            <p className="lp-promise">{promise.line}</p>
+            {promise.visual}
+            {promise.note && <p className="ps-small lp-promise__note">{promise.note}</p>}
+            <div className="lp-showcase__chart">
+              <ShowcasePreview which={f.key} recs={recs} />
+            </div>
           </div>
         </div>
       </div>
+      <BattleTeaser />
     </section>
   );
 }
@@ -388,39 +518,58 @@ function Showcase() {
 // ---------- How it works ----------
 
 // A three-stop path: each step grows Sprout a little, the same way the app does.
+// The XP hints are the app's real rewards. Each stop opens to a short description.
+const QUEST = [
+  { stage: "seed", icon: <FormOutlined />, tag: "A few minutes", xp: `+${XP.surveyDone} XP`, title: "Plant a seed", body: "Tell us about your income, spending, savings and debts. About five short pages, no bank login." },
+  { stage: "sprout", icon: <SwapOutlined />, tag: "Instant", xp: `+${XP.tourDone} XP for the tour`, title: "Watch it sprout", body: "We do the math: where your money goes, your health score, your debt-free date and what your future could look like." },
+  { stage: "tree", icon: <BulbOutlined />, tag: "At your pace", xp: `+${XP.termLearned} XP per money word`, title: "Grow your plan", body: "Take small steps, learn money words with quick quizzes, and watch Sprout grow with you." },
+];
+
 function HowItWorks() {
-  const steps = [
-    { stage: "seed", icon: <FormOutlined />, tag: "A few minutes", title: "Plant a seed", body: "Tell us about your income, spending, savings and debts. About five short pages, no bank login." },
-    { stage: "sprout", icon: <SwapOutlined />, tag: "Instant", title: "Watch it sprout", body: "We do the math: your cash flow, health score, debt-free date and long-term outlook." },
-    { stage: "tree", icon: <BulbOutlined />, tag: "At your pace", title: "Grow your plan", body: "Follow ranked next steps, learn the money words as you go, and watch Sprout grow with you." },
-  ];
+  const [open, setOpen] = useState(0);
+  const baseId = useId();
   return (
     <section className="lp-section" id="how-it-works">
       <div className="lp-section__head ps-reveal">
         <p className="ps-eyebrow">How it works</p>
         <h2 className="lp-h2">Three small steps to your plan</h2>
-        <p className="lp-section__lede">Every step is short, and you can stop and pick up again anytime.</p>
+        <p className="lp-section__lede">Every step is short, and you can stop and pick up again anytime. Tap a step to learn more.</p>
       </div>
       <div className="lp-quest">
         <svg className="lp-quest__path" viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden>
           <path d="M100 40 C 200 40, 200 88, 300 88 S 400 40, 500 40" vectorEffect="non-scaling-stroke" />
         </svg>
         <ol className="lp-quest__list">
-          {steps.map((s, i) => (
-            <li key={s.title} className="lp-quest__stop ps-reveal" style={{ "--i": i }}>
-              <span className="lp-quest__node">
-                <StageIcon stage={s.stage} size={44} />
-              </span>
-              <div className="lp-quest__text">
-                <p className="lp-quest__meta">
-                  <span className="ps-eyebrow">Step {i + 1}</span>
-                  <span className="lp-quest__tag">{s.icon} {s.tag}</span>
-                </p>
-                <h3 className="ps-h3">{s.title}</h3>
-                <p className="ps-body">{s.body}</p>
-              </div>
-            </li>
-          ))}
+          {QUEST.map((s, i) => {
+            const isOpen = open === i;
+            const panel = `${baseId}-step-${i}`;
+            return (
+              <li key={s.title} className={`lp-quest__stop ps-reveal${isOpen ? " is-open" : ""}`} style={{ "--i": i }}>
+                {i === 0 && (
+                  <span className="lp-quest__sprout" aria-hidden>
+                    <SproutMascot variant="full" size={52} mood="wave" />
+                  </span>
+                )}
+                <button type="button" className="lp-quest__toggle" aria-expanded={isOpen} aria-controls={panel} onClick={() => setOpen(isOpen ? -1 : i)}>
+                  <span className="lp-quest__node">
+                    <StageIcon stage={s.stage} size={44} />
+                  </span>
+                  <span className="lp-quest__text">
+                    <span className="lp-quest__meta">
+                      <span className="ps-eyebrow">Step {i + 1}</span>
+                      <span className="lp-quest__tag">{s.icon} {s.tag}</span>
+                    </span>
+                    <span className="ps-h3 lp-quest__title">
+                      {s.title}
+                      <DownOutlined aria-hidden className="lp-quest__chev" />
+                    </span>
+                    <span className="lp-quest__xp">{s.xp}</span>
+                  </span>
+                </button>
+                <p id={panel} className="ps-body lp-quest__body" hidden={!isOpen}>{s.body}</p>
+              </li>
+            );
+          })}
         </ol>
       </div>
     </section>

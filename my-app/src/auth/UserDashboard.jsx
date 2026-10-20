@@ -133,9 +133,11 @@ export default function UserDashboard() {
   const game = useGameStore(user.ready ? user.uid ?? "guest" : null, { termKeys: DASHBOARD_TERMS });
   const { checkIn, dispatch } = game;
   // Opening the dashboard is the weekly check-in; repeat visits in the same week change nothing.
+  // Full-screen pages (like the landing page's demo battle) don't count as a visit.
+  const fullscreen = Boolean(page.fullscreen);
   useEffect(() => {
-    if (game.ready) checkIn();
-  }, [game.ready, checkIn]);
+    if (game.ready && !fullscreen) checkIn();
+  }, [game.ready, fullscreen, checkIn]);
   // Only the user's own survey answers count, not exploring the sample.
   useEffect(() => {
     if (game.ready && mode === "own") dispatch({ type: "surveyDone" });
@@ -179,7 +181,7 @@ export default function UserDashboard() {
       <GameContext.Provider value={game}>
         <SproutProvider scope="app" getContext={() => ({ profile, plan })}>
           <Suspense fallback={<div className="ps-root"><PageSkeleton /></div>}>
-            <Component profile={profile} metrics={metrics} plan={plan} setPlan={setPlan} go={go} query={new URLSearchParams(location.search)} />
+            <Component profile={profile} metrics={metrics} plan={plan} setPlan={setPlan} go={go} navigate={navigate} query={new URLSearchParams(location.search)} />
           </Suspense>
           <GameFeed />
         </SproutProvider>
