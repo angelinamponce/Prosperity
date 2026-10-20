@@ -42,9 +42,10 @@
 .lp-accent { font-style: italic; color: var(--ps-brand-600); background: linear-gradient(120deg, var(--ps-brand-500), var(--ps-brand-700)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; padding-right: 0.06em; }
 .lp-hero__lede { margin-top: var(--ps-space-5); max-width: 500px; font-size: 1.125rem; line-height: 1.6; color: var(--ps-ink-2); }
 .lp-hero__ctas { margin-top: var(--ps-space-8); display: flex; flex-wrap: wrap; gap: var(--ps-space-3); }
-.lp-checks { list-style: none; margin: var(--ps-space-8) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ps-space-2) var(--ps-space-5); font-size: var(--ps-text-sm); color: var(--ps-ink-2); }
-.lp-checks li { display: inline-flex; align-items: center; gap: 6px; }
-.lp-checks .anticon { color: var(--ps-brand-500); }
+/* Trust badges */
+.lp-trust { list-style: none; margin: var(--ps-space-8) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ps-space-2); }
+.lp-trust li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--ps-radius-full); border: 1px solid var(--ps-brand-200); background: var(--ps-surface); font-size: var(--ps-text-sm); font-weight: 500; color: var(--ps-ink-2); }
+.lp-trust .anticon { color: var(--ps-brand-600); }
 
 /* Sprout greeting in the hero */
 .lp-ask { margin-top: var(--ps-space-8); display: flex; align-items: flex-end; gap: var(--ps-space-4); max-width: 520px; }
@@ -60,34 +61,50 @@
   font-size: var(--ps-text-md);
 }
 
-/* Interactive preview */
-.lp-preview { perspective: 1400px; }
-.lp-preview__stage {
-  position: relative;
-  padding: 64px 0 96px;
-  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-  transform-style: preserve-3d;
-  transition: transform 400ms var(--ps-ease);
+/* Interactive preview: a sentence first, a garden, the slider, and the numbers one tap away. */
+.lp-preview__main { display: flex; flex-direction: column; gap: var(--ps-space-4); padding: var(--ps-space-6); box-shadow: var(--ps-shadow-lg); }
+.lp-preview__head { display: flex; justify-content: space-between; align-items: center; gap: var(--ps-space-3); flex-wrap: wrap; }
+.lp-preview__sentence { min-height: 3.6em; font-family: var(--ps-font-display); font-size: clamp(1.3rem, 2.4vw, 1.6rem); line-height: 1.3; color: var(--ps-ink); }
+.lp-preview__note { margin-top: var(--ps-space-3); text-align: right; }
+
+/* A small garden bed: soil with five plots. Each plant pops in when it grows a stage. */
+.lp-garden {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+  height: 72px;
+  padding: 0 var(--ps-space-3);
+  border-radius: var(--ps-radius-md);
+  background: linear-gradient(180deg, var(--ps-brand-50) 0 62%, #e9dfc8 62% 74%, #dccfb1 74%);
+  box-shadow: inset 0 -3px 0 #cdbf9f;
 }
-.lp-preview__main { position: relative; z-index: 1; padding: var(--ps-space-6); box-shadow: var(--ps-shadow-lg); }
-.lp-preview__head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--ps-space-3); }
-.lp-preview__big { margin-top: 4px; font-size: var(--ps-text-3xl); font-weight: 600; letter-spacing: -0.03em; }
-.lp-preview__note { margin-top: -56px; text-align: right; }
-.lp-float {
-  position: absolute;
-  z-index: 2;
-  display: flex;
+.lp-garden__plot { display: grid; place-items: end center; height: 100%; padding-bottom: 14px; }
+.lp-garden__plant { display: block; transform-origin: 50% 100%; animation: lp-grow 420ms var(--ps-spring) both; }
+@keyframes lp-grow { from { transform: scale(0.6); opacity: 0.4; } }
+
+.lp-numbers-btn {
+  align-self: flex-start;
+  display: inline-flex;
   align-items: center;
-  gap: var(--ps-space-3);
-  padding: var(--ps-space-3) var(--ps-space-4);
-  box-shadow: var(--ps-shadow-lg);
-  transform: translateZ(40px);
-  animation: lp-bob 6s ease-in-out infinite;
+  gap: 6px;
+  padding: 6px 2px;
+  border: 0;
+  background: none;
+  color: var(--ps-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-.lp-float__value { font-size: var(--ps-text-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
-.lp-float--a { top: 0; right: -20px; transform: translateZ(40px) translateY(calc(var(--py, 0) * -0.1px)); }
-.lp-float--b { bottom: 0; left: -64px; transform: translateZ(40px) translateY(calc(var(--py, 0) * -0.05px)); flex-direction: column; align-items: flex-start; gap: 2px; animation-delay: -3s; }
-@keyframes lp-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
+.lp-numbers-btn__icon { font-size: 11px; transition: transform var(--ps-fast) var(--ps-ease); }
+.lp-numbers-btn[aria-expanded="true"] .lp-numbers-btn__icon { transform: rotate(180deg); }
+.lp-numbers { display: flex; flex-direction: column; gap: var(--ps-space-3); padding-top: var(--ps-space-4); border-top: 1px dashed var(--ps-border); animation: ps-enter 300ms var(--ps-ease) both; }
+.lp-numbers[hidden] { display: none; }
+.lp-numbers__list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ps-space-3); margin: 0; }
+.lp-numbers__list div { padding: var(--ps-space-3); border-radius: var(--ps-radius-md); background: var(--ps-surface-sunken); }
+.lp-numbers__list dt { font-size: var(--ps-text-xs); color: var(--ps-ink-3); }
+.lp-numbers__list dd { margin: 2px 0 0; font-size: var(--ps-text-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* ---------- Sections ---------- */
 .lp-section { max-width: 1200px; margin: 0 auto; padding: 96px var(--ps-space-6); }
@@ -185,6 +202,7 @@
 
 /* CTA band */
 .lp-cta {
+  position: relative;
   max-width: 1152px;
   margin: 0 auto 96px;
   padding: 72px var(--ps-space-6);
@@ -194,6 +212,8 @@
   background: radial-gradient(120% 140% at 50% 0%, var(--ps-brand-600) 0%, var(--ps-brand-800) 55%, var(--ps-brand-900) 100%);
   box-shadow: var(--ps-shadow-lg);
 }
+/* Sprout peeks over the top edge of the band. */
+.lp-cta__peek { position: absolute; top: 0; left: 50%; transform: translate(-50%, -62%); filter: drop-shadow(0 4px 6px rgba(20, 48, 33, 0.25)); }
 .lp-cta__title { font-family: var(--ps-font-display); font-size: clamp(2rem, 3.6vw, 2.75rem); font-weight: 400; letter-spacing: -0.01em; }
 .lp-cta__lede { margin-top: var(--ps-space-3); font-size: var(--ps-text-lg); color: rgba(255, 255, 255, 0.78); }
 .ps-root a.lp-cta__btn { margin-top: var(--ps-space-8); background: #fff; color: var(--ps-brand-800); font-weight: 600; --ledge: 0 var(--ps-press-depth) 0 rgba(0, 0, 0, 0.28); --lift: var(--ps-shadow-md); }
@@ -204,11 +224,6 @@
 .lp-footer__links { display: flex; gap: var(--ps-space-5); font-weight: 500; }
 
 /* ---------- Responsive ---------- */
-/* Keep the floating cards inside the viewport on mid-size screens. */
-@media (max-width: 1279px) {
-  .lp-float--a { right: 16px; }
-  .lp-float--b { left: -24px; }
-}
 
 @media (max-width: 1024px) {
   .lp-hero { grid-template-columns: minmax(0, 1fr); gap: 56px; padding-top: var(--ps-space-10); }
@@ -228,9 +243,8 @@
   .lp-nav__sheet .ps-btn { margin-top: var(--ps-space-2); }
   .lp-hero { padding: var(--ps-space-8) var(--ps-space-4) var(--ps-space-14); }
   .lp-hero__ctas .ps-btn { flex: 1 1 100%; }
-  .lp-float { display: none; }
-  .lp-preview__stage { padding: 0; }
-  .lp-preview__note { margin-top: var(--ps-space-4); }
+  .lp-preview__main { padding: var(--ps-space-5); }
+  .lp-numbers__list { grid-template-columns: minmax(0, 1fr); }
   .lp-section { padding: 64px var(--ps-space-4); }
   .lp-showcase__list { grid-template-columns: minmax(0, 1fr); }
   .lp-feature__body { display: none; }
@@ -249,8 +263,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lp-float { animation: none; }
-  .lp-preview__stage { transform: none; }
+  .lp-garden__plant, .lp-numbers { animation: none; }
+  .lp-numbers-btn__icon { transition: none; }
   .lp-quest__node { transition: none; }
   .lp-quest__stop:hover .lp-quest__node { transform: none; }
 }

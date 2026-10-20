@@ -1,37 +1,38 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRightOutlined,
   BulbOutlined,
+  CalculatorOutlined,
   CheckOutlined,
   CloseOutlined,
+  CommentOutlined,
   CreditCardOutlined,
+  DownOutlined,
   FormOutlined,
   MenuOutlined,
   RiseOutlined,
+  SafetyOutlined,
   SwapOutlined,
 } from "@ant-design/icons";
 import {
-  AnimatedNumber,
   Badge,
   Legend,
   LineChart,
   LogoMark,
-  Ring,
   Slider,
-  Sparkline,
   StageIcon,
   Waterfall,
-  duration,
   money,
   moneyShort,
-  pct,
   prefersReducedMotion,
   useReveal,
 } from "../design";
 import { sampleProfile } from "../dashboard/sampleProfile";
-import { addMonths, buildRecommendations, computeMetrics, gradeBreakdown, monteCarlo, simulatePayoff } from "../dashboard/finance";
+import { addMonths, buildRecommendations, computeMetrics, monteCarlo, simulatePayoff } from "../dashboard/finance";
 import { RecommendationList } from "../dashboard/components";
+import { debtFreeSummary, humanDuration } from "../dashboard/summaries";
+import HeroGarden from "./HeroGarden";
 import Intro, { shouldPlayIntro } from "./Intro";
 import { SproutChat, SproutLauncher, SproutMascot, SproutProvider, SuggestedQuestions } from "../sprout";
 import "./landing.css";
@@ -46,6 +47,7 @@ const SPROUT_STARTERS = [
 ];
 const metrics = computeMetrics(profile);
 const NOW = new Date();
+const SLIDER_MAX = 1000;
 
 function scrollToId(e, id) {
   const el = document.getElementById(id);
@@ -112,10 +114,10 @@ function Nav({ logoRef }) {
 // What Sprout says as the slider moves. Encourages any extra amount, and reminds people not to overstretch.
 function sproutLine(extra, monthsSaved) {
   if (extra === 0) return { tier: 0, mood: "idle", text: "Minimums still get you there. Slide to see what a little extra does." };
-  const sooner = monthsSaved > 0 ? `${duration(monthsSaved)} sooner` : "sooner";
+  const sooner = monthsSaved > 0 ? `about ${humanDuration(monthsSaved)} sooner` : "sooner";
   if (extra < 300) return { tier: 1, mood: "cheer", text: `Even ${money(extra)} a month gets you there ${sooner}. Small steps count!` };
-  if (extra < 700) return { tier: 2, mood: "cheer", text: `Debt-free ${sooner} than paying only the minimums. Nice momentum!` };
-  return { tier: 3, mood: "cheer", text: `Debt-free ${sooner}! Only add what fits your budget comfortably, though.` };
+  if (extra < 700) return { tier: 2, mood: "cheer", text: "Look at that garden grow. Nice momentum!" };
+  return { tier: 3, mood: "cheer", text: "Big jump! Only add what fits your budget comfortably, though." };
 }
 
 // Repeats `text` to screen readers once the slider settles, instead of on every step.
@@ -133,113 +135,87 @@ function useSettledAnnouncement(text, delay = 800) {
   return spoken;
 }
 
+// One plain sentence first; the exact dates, interest and chart are one tap away.
 function HeroPreview() {
   const [extra, setExtra] = useState(300);
-  const stageRef = useRef(null);
+  const [showNumbers, setShowNumbers] = useState(false);
+  const numbersId = useId();
+  const summary = useMemo(() => debtFreeSummary(profile.debts, { extra, now: NOW }), [extra]);
   const base = useMemo(() => simulatePayoff(profile.debts, { extra: 0, rollover: false }), []);
   const plan = useMemo(() => simulatePayoff(profile.debts, { extra }), [extra]);
-  const grade = useMemo(() => gradeBreakdown(metrics), []);
   const len = base.balances.length;
   const pad = (xs) => Array.from({ length: len }, (_, i) => xs[i] ?? 0);
   const labels = Array.from({ length: len }, (_, i) => addMonths(NOW, i));
-  const h = profile.history;
-  const rates = h.income.map((inc, i) => (inc - h.spending[i] - metrics.minDebt) / inc);
-  const line = sproutLine(extra, base.months - plan.months);
-  const spoken = useSettledAnnouncement(line.text);
-
-  // Floating cards drift a little slower than the page as you scroll.
-  useEffect(() => {
-    if (prefersReducedMotion()) return undefined;
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => stageRef.current?.style.setProperty("--py", String(Math.min(window.scrollY, 800))));
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-
-  // Gentle 3D tilt that follows the pointer.
-  const onMove = (e) => {
-    if (prefersReducedMotion() || e.pointerType !== "mouse") return;
-    const el = stageRef.current;
-    const r = el.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width - 0.5;
-    const y = (e.clientY - r.top) / r.height - 0.5;
-    el.style.setProperty("--rx", `${(-y * 4).toFixed(2)}deg`);
-    el.style.setProperty("--ry", `${(x * 6).toFixed(2)}deg`);
-  };
-  const onLeave = () => {
-    stageRef.current?.style.setProperty("--rx", "0deg");
-    stageRef.current?.style.setProperty("--ry", "0deg");
-  };
+  const sooner = summary.monthsSooner ?? 0;
+  const line = sproutLine(extra, sooner);
+  const spoken = useSettledAnnouncement(`${summary.sentence} ${line.text}`);
+  // The patch shows the time the extra payment saves: bare seeds at $0 extra, fully grown at the slider's maximum.
+  const range = useMemo(
+    () => [0, SLIDER_MAX].map((e) => base.months - simulatePayoff(profile.debts, { extra: e }).months),
+    [base]
+  );
+  const growth = Math.max(0, Math.min(1, (sooner - range[0]) / (range[1] - range[0] || 1)));
 
   return (
-    <div className="lp-preview" onPointerMove={onMove} onPointerLeave={onLeave}>
-      <div className="lp-preview__stage" ref={stageRef}>
-        <div className="ps-card lp-preview__main">
-          <div className="lp-preview__head">
-            <div>
-              <p className="ps-eyebrow">Debt-free by</p>
-              <div className="lp-preview__big">
-                <AnimatedNumber value={plan.months} format={(v) => addMonths(NOW, Math.round(v))} duration={500} />
-              </div>
-            </div>
-            <Badge tone="positive">Save {money(base.interest - plan.interest)}</Badge>
-          </div>
-          <div style={{ margin: "4px 0 8px" }}>
-            <Legend
-              items={[
-                { label: "Your plan", color: "var(--ps-brand-500)" },
-                { label: "Minimums only", color: "var(--ps-series-muted)", dashed: true },
-              ]}
-            />
-          </div>
-          <LineChart
-            x={labels}
-            series={[
-              { key: "base", label: "Minimums only", color: "var(--ps-series-muted)", values: pad(base.balances), dashed: true },
-              { key: "plan", label: "Your plan", color: "var(--ps-brand-500)", values: pad(plan.balances) },
-            ]}
-            height={170}
-            ariaLabel="Sample debt balance over time"
-          />
-          <div style={{ marginTop: 16 }}>
-            <Slider label="Extra payment each month" value={extra} min={0} max={1000} step={25} format={money} onChange={setExtra} />
-          </div>
-          <div className="lp-react">
-            {/* Remounting on a new tier replays the cheer. */}
-            <SproutMascot key={line.tier} variant="head" size={44} mood={line.mood} />
-            <p className="lp-react__bubble" aria-hidden>{line.text}</p>
-            <span className="ps-sr-only" aria-live="polite">{spoken}</span>
-          </div>
+    <div className="lp-preview">
+      <div className="ps-card lp-preview__main">
+        <div className="lp-preview__head">
+          <Badge>Sample plan</Badge>
+          <span className="ps-small">{money(metrics.totalDebt)} of debt across {profile.debts.length} loans</span>
         </div>
-
-        <div className="ps-card lp-float lp-float--a" aria-hidden>
-          <Ring value={grade.score / 100} size={56} stroke={6}>
-            <span style={{ fontWeight: 600 }}>{grade.letter}</span>
-          </Ring>
-          <div>
-            <p className="ps-small">Financial health</p>
-            <p className="lp-float__value"><AnimatedNumber value={grade.score} format={(v) => `${Math.round(v)} / 100`} /></p>
-          </div>
+        <p className="lp-preview__sentence">{summary.sentence}</p>
+        <HeroGarden growth={growth} />
+        <Slider label="Extra payment each month" value={extra} min={0} max={SLIDER_MAX} step={25} format={money} onChange={setExtra} />
+        <div className="lp-react">
+          {/* Remounting on a new tier replays the cheer. */}
+          <SproutMascot key={line.tier} variant="head" size={44} mood={line.mood} />
+          <p className="lp-react__bubble" aria-hidden>{line.text}</p>
+          <span className="ps-sr-only" aria-live="polite">{spoken}</span>
         </div>
-
-        <div className="ps-card lp-float lp-float--b" aria-hidden>
-          <p className="ps-small">Savings rate</p>
-          <p className="lp-float__value"><AnimatedNumber value={metrics.savingsRate} format={(v) => pct(v, 1)} /></p>
-          <div style={{ width: 150 }}>
-            <Sparkline values={rates} height={32} />
-          </div>
+        <button type="button" className="lp-numbers-btn" aria-expanded={showNumbers} aria-controls={numbersId} onClick={() => setShowNumbers((v) => !v)}>
+          {showNumbers ? "Hide the numbers" : "Show the numbers"}
+          <DownOutlined aria-hidden className="lp-numbers-btn__icon" />
+        </button>
+        <div id={numbersId} className="lp-numbers" hidden={!showNumbers}>
+          {showNumbers && (
+            <>
+              <dl className="lp-numbers__list">
+                <div><dt>Debt-free on this plan</dt><dd>{summary.plan.date}</dd></div>
+                <div><dt>With minimums only</dt><dd>{summary.base.date}</dd></div>
+                <div><dt>Interest saved</dt><dd>{money(summary.interestSaved)}</dd></div>
+              </dl>
+              <p className="ps-small">
+                “This plan” pays every minimum plus {money(extra)} extra a month, highest interest first, and moves each paid-off debt's payment to the next one.
+              </p>
+              <Legend
+                items={[
+                  { label: "This plan", color: "var(--ps-brand-500)" },
+                  { label: "Minimums only", color: "var(--ps-series-muted)", dashed: true },
+                ]}
+              />
+              <LineChart
+                x={labels}
+                series={[
+                  { key: "base", label: "Minimums only", color: "var(--ps-series-muted)", values: pad(base.balances), dashed: true },
+                  { key: "plan", label: "This plan", color: "var(--ps-brand-500)", values: pad(plan.balances) },
+                ]}
+                height={170}
+                ariaLabel="Sample debt balance over time"
+              />
+            </>
+          )}
         </div>
       </div>
-      <p className="ps-small lp-preview__note">Live preview with sample numbers. Drag the slider.</p>
+      <p className="ps-small lp-preview__note">Sample numbers, not yours. Drag the slider to try it.</p>
     </div>
   );
 }
+
+const TRUST = [
+  { icon: <SafetyOutlined />, text: "No bank connection needed" },
+  { icon: <CalculatorOutlined />, text: "Advice that shows its work" },
+  { icon: <CommentOutlined />, text: "Plain English, no jargon" },
+];
 
 function Hero({ ready }) {
   return (
@@ -261,23 +237,22 @@ function Hero({ ready }) {
             See how it works
           </a>
         </div>
-        <ul className="lp-checks lp-enter" style={{ "--i": 4 }}>
-          {["No bank connection needed", "Advice in plain English", "Built on your own numbers"].map((t) => (
-            <li key={t}><CheckOutlined /> {t}</li>
+        <ul className="lp-trust lp-enter" style={{ "--i": 4 }} aria-label="Why people trust Prosperity">
+          {TRUST.map((t) => (
+            <li key={t.text}><span aria-hidden>{t.icon}</span> {t.text}</li>
           ))}
         </ul>
         <div className="lp-ask lp-enter" style={{ "--i": 5 }}>
           <SproutMascot variant="full" size={68} mood="wave" />
           <div className="lp-ask__body">
             <p className="lp-ask__bubble">
-              Hi, I'm <strong>Sprout</strong>, your AI money guide. Try me on a sample plan:
+              Hi, I'm <strong>Sprout</strong>! Money stuff can feel like a lot. Let's take it one small step at a time.
             </p>
-            <SuggestedQuestions questions={SPROUT_STARTERS.slice(0, 2)} label="Try asking Sprout" />
+            <SuggestedQuestions questions={SPROUT_STARTERS.slice(0, 2)} label="Try asking Sprout about the sample plan" />
           </div>
         </div>
       </div>
       <div className="lp-enter" style={{ "--i": 2 }}>
-        {/* Remounts when the intro ends so the numbers count up and the line draws in view. */}
         <HeroPreview key={ready ? "ready" : "waiting"} />
       </div>
     </section>
@@ -487,8 +462,11 @@ function About() {
 function CtaBand() {
   return (
     <section className="lp-cta ps-reveal">
-      <h2 className="lp-cta__title">Ready to see your own plan?</h2>
-      <p className="lp-cta__lede">It takes a few minutes, and you can change any answer later.</p>
+      <span className="lp-cta__peek" aria-hidden>
+        <SproutMascot variant="head" size={72} mood="wave" />
+      </span>
+      <h2 className="lp-cta__title">Your garden is waiting</h2>
+      <p className="lp-cta__lede">Plant your first seed in a few minutes. You can change any answer later.</p>
       <Link to="/signup" className="ps-btn lp-btn-lg lp-cta__btn">
         Plant your first seed <ArrowRightOutlined />
       </Link>
