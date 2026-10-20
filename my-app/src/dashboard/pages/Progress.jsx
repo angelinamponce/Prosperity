@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
-import { CheckOutlined, LockOutlined, SafetyOutlined } from "@ant-design/icons";
+import { CheckOutlined, SafetyOutlined } from "@ant-design/icons";
 import { Button, Card, StageIcon, STAGES } from "../../design";
-import { BADGES, CHECKINS_PER_FREEZE, LEVEL_XP, MAX_FREEZES, XP, XpBar, useGame } from "../../game";
+import { BADGES, BadgeTile, CHECKINS_PER_FREEZE, LEVEL_XP, MAX_FREEZES, XP, XpBar, useGame } from "../../game";
 import { EmptyState, PageHeader } from "../components";
 import { Explain, GLOSSARY } from "../glossary";
 
@@ -10,8 +10,6 @@ const Done = ({ children = "Done" }) => (
     <CheckOutlined aria-hidden /> {children}
   </span>
 );
-
-const dateLabel = (at) => new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 export default function Progress({ onReplayTour }) {
   const game = useGame();
@@ -136,19 +134,9 @@ export default function Progress({ onReplayTour }) {
       <div className="db-grid">
         <Card className="span-12 ps-enter" style={{ "--i": 3 }} title="Badges" subtitle={`${earned.length} of ${BADGES.length} earned`}>
           <ul className="gm-badges">
-            {BADGES.map((b) => {
-              const got = p.badges[b.id];
-              return (
-                <li key={b.id} className={`gm-badge${got ? "" : " is-locked"}`}>
-                  <span className="gm-badge__medal">
-                    <StageIcon stage={b.icon} size={36} />
-                    {!got && <span className="gm-badge__lock"><LockOutlined aria-hidden /></span>}
-                  </span>
-                  <span className="gm-badge__name">{b.name}</span>
-                  <span className="gm-badge__how">{got ? `Earned ${dateLabel(got.at)}` : `Not yet: ${b.how}`}</span>
-                </li>
-              );
-            })}
+            {BADGES.map((b) => (
+              <BadgeTile key={b.id} badge={b} earned={p.badges[b.id]} />
+            ))}
           </ul>
         </Card>
       </div>

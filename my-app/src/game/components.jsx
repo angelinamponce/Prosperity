@@ -1,8 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRightOutlined } from "@ant-design/icons";
+import { ArrowRightOutlined, LockOutlined } from "@ant-design/icons";
 import { Button, StageIcon, useCelebration } from "../design";
 import { useGame } from "./store";
+
+const dateLabel = (at) => new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+/** One badge: a medal when earned (with the date), or a dashed outline that says how to earn it. */
+export function BadgeTile({ badge, earned, as: Tag = "li" }) {
+  return (
+    <Tag className={`gm-badge${earned ? "" : " is-locked"}`}>
+      <span className="gm-badge__medal">
+        <StageIcon stage={badge.icon} size={36} />
+        {!earned && <span className="gm-badge__lock"><LockOutlined aria-hidden /></span>}
+      </span>
+      <span className="gm-badge__name">{badge.name}</span>
+      <span className="gm-badge__how">{earned ? `Earned ${dateLabel(earned.at)}` : `Not yet: ${badge.how}`}</span>
+    </Tag>
+  );
+}
 
 const QUIET_SOURCES = ["learnTerm", "answerQuestion", "undoMission"];
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRightOutlined } from "@ant-design/icons";
 import { AnimatedNumber, Button, Card, ChartCard, Delta, LineChart, Ring, Sprout, StackedBar, money, moneyShort, pct, useCelebration } from "../../design";
 import { buildRecommendations, gradeBreakdown } from "../finance";
@@ -7,10 +7,14 @@ import { SuggestedQuestions } from "../../sprout";
 import { DASHBOARD_TERMS, Explain, GLOSSARY } from "../glossary";
 import { planSummary } from "../summaries";
 import { Greeting, SummaryStrip, TodaysQuest } from "../home/HomeTop";
+import { BadgePreview, DebtPath, QuizShortcut, SavingsJar, StreakCard, Vitality, WordsCounter } from "../home/HomeCards";
 import { useGame } from "../../game";
 import { pickQuest } from "../../game/quest";
 import { BANK } from "../../quiz/bank";
 import { dueCounts } from "../../quiz/select";
+
+// The garden picture loads on its own, after the rest of the page.
+const GardenCard = lazy(() => import("../home/GardenCard"));
 
 // Dashboard words first (they appear on these pages), then the quiz words.
 const WORDS = [...DASHBOARD_TERMS, ...Object.keys(GLOSSARY).filter((k) => !DASHBOARD_TERMS.includes(k))].map((key) => ({ key, ...GLOSSARY[key] }));
@@ -95,6 +99,37 @@ export default function Overview({ profile, metrics: m, plan, go }) {
       <div className="db-grid">
         {quest && <TodaysQuest quest={quest} go={go} className="span-7 ps-enter" style={{ "--i": 1 }} />}
         <SummaryStrip sentences={sentences} fromSurvey={profile.fromSurvey} className={`${quest ? "span-5" : "span-12"} ps-enter`} style={{ "--i": 2 }} />
+      </div>
+
+      <div className="hm-section">
+        <h2 className="ps-h2">Your garden and progress</h2>
+        <span className="ps-small">Pictures first, with the exact numbers right there</span>
+      </div>
+      <div className="db-grid">
+        <Suspense fallback={<div className="ps-card span-7 hm-garden-wait" aria-busy="true" />}>
+          <GardenCard
+            profile={profile}
+            metrics={m}
+            plan={plan}
+            healthScore={grade.score}
+            learned={game?.ready ? Object.keys(game.progress.terms).length : 0}
+            wordTotal={WORDS.length}
+            className="span-7 ps-enter"
+          />
+        </Suspense>
+        <div className="span-5 hm-stack">
+          <QuizShortcut go={go} className="ps-enter" style={{ "--i": 1 }} />
+          <WordsCounter total={WORDS.length} go={go} className="ps-enter" style={{ "--i": 2 }} />
+        </div>
+      </div>
+      <div className="hm-cards">
+        <SavingsJar m={m} style={{ "--i": 2 }} />
+        <DebtPath profile={profile} plan={plan} style={{ "--i": 3 }} />
+        <Vitality grade={grade} style={{ "--i": 4 }} />
+        <StreakCard style={{ "--i": 5 }} />
+      </div>
+      <div className="db-grid" style={{ marginTop: 20 }}>
+        <BadgePreview go={go} className="span-12 ps-enter" />
       </div>
 
       <div className="hm-section">

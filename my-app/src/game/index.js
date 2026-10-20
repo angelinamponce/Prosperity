@@ -3,4 +3,4 @@ import "./game.css";
 
 export * from "./rules";
 export { GameContext, useGame, useGameStore, gameKey } from "./store";
-export { GameFeed, GardenerChip, XpBar } from "./components";
+export { BadgeTile, GameFeed, GardenerChip, XpBar } from "./components";
