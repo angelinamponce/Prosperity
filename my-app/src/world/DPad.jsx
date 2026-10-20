@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { CaretDownFilled, CaretLeftFilled, CaretRightFilled, CaretUpFilled } from "@ant-design/icons";
 
 const ARROWS = [
@@ -11,7 +12,7 @@ const ARROWS = [
  * An on-screen D-pad: press and hold an arrow to keep walking; A goes inside (or looks at what Sprout
  * faces). Works with touch, mouse, and keyboard (Enter or Space takes one step).
  */
-export function DPad({ walk, release, interact }) {
+export const DPad = memo(function DPad({ walk, release, interact }) {
   const hold = (dir) => (e) => {
     e.preventDefault();
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -50,4 +51,4 @@ export function DPad({ walk, release, interact }) {
       </button>
     </div>
   );
-}
+});

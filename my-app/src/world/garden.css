@@ -1,7 +1,8 @@
 /* Garden mode: the town on the world screen and the guide on the touch screen. */
 
 .gw { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; background: #24382b; }
-.gw__stage { position: relative; }
+/* Centered in whole pixels (set in GardenWorld) so a slightly-too-big crisp map crops evenly and stays sharp. */
+.gw__stage { position: absolute; }
 .gw__ground { position: absolute; inset: 0; image-rendering: pixelated; }
 /* Buildings and Sprout live on a 384 x 240 layer scaled to match the ground exactly. */
 .gw__layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
@@ -40,7 +41,7 @@
 .gw-plot .gw-tag { bottom: auto; top: -10px; }
 
 /* The focusable map. Keys only walk Sprout while focus is in here. */
-.gw__map { position: relative; display: grid; place-items: center; width: 100%; height: 100%; }
+.gw__map { position: relative; width: 100%; height: 100%; }
 .px-root .gw__map:focus-visible { outline: 3px solid #ffffff; outline-offset: -3px; box-shadow: inset 0 0 0 6px var(--ps-brand-700); }
 .gw-hint {
   position: absolute;

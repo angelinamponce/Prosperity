@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { TILE } from "./town";
 
 // Original pixel-art buildings, drawn from rectangles. Each stands one tile taller than its footprint
@@ -151,8 +152,8 @@ function Weather({ w, h, doorX }) {
 
 const ART = { home: Home, library: Library, toolshed: Toolshed, greenhouse: Greenhouse, weather: Weather };
 
-/** The building's picture, sized to its footprint plus one tile of roof above. */
-export function BuildingArt({ building }) {
+/** The building's picture, sized to its footprint plus one tile of roof above. Never changes, so it's memoized. */
+export const BuildingArt = memo(function BuildingArt({ building }) {
   const w = building.w * TILE;
   const h = (building.h + 1) * TILE;
   const Art = ART[building.kind];
@@ -162,6 +163,6 @@ export function BuildingArt({ building }) {
       <Art w={w} h={h} doorX={doorX} topic={building.topic} />
     </svg>
   );
-}
+});
 
 export const TOPIC_SIGN_COLORS = TOPIC_SIGN;

@@ -1,6 +1,9 @@
 /* Garden mode: the handheld frame, text box and list menus. Pixel font for game text; Jost for reading. */
 
+/* Garden mode screens fill the window exactly: no default page margin, padding counted inside. */
+body:has(.px-root) { margin: 0; }
 .px-root {
+  box-sizing: border-box;
   font-family: var(--px-font);
   color: var(--px-ink);
   -webkit-font-smoothing: antialiased;
@@ -28,7 +31,13 @@
   border-radius: 26px;
   background: linear-gradient(160deg, var(--px-shell-2), var(--px-shell));
   box-shadow: 0 2px 0 rgba(255, 255, 255, 0.06) inset, 0 24px 48px -20px rgba(20, 40, 25, 0.55), 0 6px 0 #1a2a20;
+  display: flex;
+  flex-direction: column;
 }
+/* The hinge is first in the page (for keyboard order) but shows between the two screens. */
+.hh__screen--top { order: 1; }
+.hh__hinge { order: 2; }
+.hh__screen--bottom { order: 3; }
 .hh__screen {
   position: relative;
   aspect-ratio: 16 / 10;

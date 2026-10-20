@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AppstoreOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import { prefersReducedMotion } from "../design";
 import { useGame } from "../game/store";
@@ -36,6 +36,57 @@ function useBox() {
     return () => ro.disconnect();
   }, []);
   return [ref, box];
+}
+
+// The "Go to..." list doesn't change while Sprout walks, so it skips those re-renders.
+const GoToList = memo(ListMenu);
+
+const PLACES = [
+  // Greenhouses are listed by topic so the names fit on one line.
+  ...BUILDINGS.map((b) => (b.kind === "greenhouse" ? { key: b.id, label: b.name.replace(" Greenhouse", ""), sub: "Greenhouse · quiz battle" } : { key: b.id, label: b.name, sub: b.opens })),
+  { key: PLOT.id, label: PLOT.name, sub: "What's growing from your numbers" },
+];
+
+/** The plot and buildings, as buttons over the ground. Memoized: walking doesn't re-render them. */
+const Places = memo(function Places({ onBuilding, onDescribe, onPlot, onPlotFocus }) {
+  return (
+    <>
+      <button
+        type="button"
+        className="gw-plot"
+        style={{ left: PLOT.x * TILE, top: PLOT.y * TILE, width: PLOT.w * TILE, height: PLOT.h * TILE, zIndex: (PLOT.y + PLOT.h) * 10 }}
+        aria-label="Your garden plot. Hear what's growing from your numbers."
+        onClick={onPlot}
+        onFocus={onPlotFocus}
+      >
+        <span className="gw-tag">Your garden</span>
+      </button>
+      {BUILDINGS.map((b) => (
+        <button
+          key={b.id}
+          type="button"
+          className="gw-bld"
+          style={{ left: b.x * TILE, top: (b.y - 1) * TILE, width: b.w * TILE, height: (b.h + 1) * TILE, zIndex: (b.y + b.h) * 10 }}
+          aria-label={`${b.name}. Opens ${b.opens}.`}
+          onClick={(e) => onBuilding(b, e)}
+          onFocus={() => onDescribe(b)}
+          onMouseEnter={() => onDescribe(b)}
+        >
+          <span className="gw-bld__shadow" aria-hidden />
+          <BuildingArt building={b} />
+          <span className="gw-tag">{b.name}</span>
+        </button>
+      ))}
+    </>
+  );
+});
+
+// Calls the latest version of a handler through a function whose identity never changes,
+// so memoized children don't re-render just because a handler was re-created.
+function useStable(fn) {
+  const ref = useRef(fn);
+  ref.current = fn;
+  return useCallback((...args) => ref.current(...args), []);
 }
 
 const WELCOME = "Welcome to Sprout's town! Walk to a building to visit it, or pick a place from the list below.";
@@ -146,32 +197,30 @@ export default function GardenWorld({ profile, metrics, plan, go }) {
     if (!walker.goTo(tile)) setMessage({ text: "Sprout can't get there. Try somewhere on the grass or the path.", speaker: "Sprout", font: "pixel" });
   };
   // Tapping a building walks to its door and goes in; from the keyboard it opens right away.
-  const onBuildingClick = (b) => (e) => {
+  const onBuildingClick = useStable((b, e) => {
     e.stopPropagation();
     if (e.detail === 0) return enter(b);
     return walker.goTo(b.door, () => {
       walker.face("up");
       enter(b);
     });
-  };
-  const onPlotClick = (e) => {
+  });
+  const onDescribe = useStable(describe);
+  const onPlotFocus = useStable(showPlot);
+  const onPlotClick = useStable((e) => {
     e.stopPropagation();
     if (e.detail === 0) return showPlot();
     return walker.goTo(PLOT.gate, () => {
       walker.face("up");
       showPlot();
     });
-  };
+  });
+  const stableInteract = useStable(interact);
 
   const coarse = typeof window !== "undefined" && Boolean(window.matchMedia?.("(pointer: coarse)").matches);
   const showPad = game?.progress.settings.dpad ?? coarse;
 
-  const places = [
-    // Greenhouses are listed by topic so the names fit on one line.
-    ...BUILDINGS.map((b) => (b.kind === "greenhouse" ? { key: b.id, label: b.name.replace(" Greenhouse", ""), sub: "Greenhouse · quiz battle" } : { key: b.id, label: b.name, sub: b.opens })),
-    { key: PLOT.id, label: PLOT.name, sub: "What's growing from your numbers" },
-  ];
-  const onPick = (key) => (key === PLOT.id ? showPlot() : enter(BUILDINGS.find((b) => b.id === key)));
+  const onPick = useStable((key) => (key === PLOT.id ? showPlot() : enter(BUILDINGS.find((b) => b.id === key))));
 
   const { pos, facing, frame, target } = walker;
   const sproutRows = SPROUT_FRAMES[facing === "right" ? "left" : facing][frame];
@@ -194,36 +243,15 @@ export default function GardenWorld({ profile, metrics, plan, go }) {
           }
         }}
       >
-        <div className="gw__stage" ref={stageRef} style={{ width: MAP_W * scale, height: MAP_H * scale }}>
+        <div
+          className="gw__stage"
+          ref={stageRef}
+          style={{ width: MAP_W * scale, height: MAP_H * scale, left: Math.round((screen.w - MAP_W * scale) / 2), top: Math.round((screen.h - MAP_H * scale) / 2) }}
+        >
           <canvas ref={canvasRef} className="gw__ground" style={{ width: MAP_W * scale, height: MAP_H * scale }} aria-hidden />
           <div className="gw__layer" style={{ width: MAP_W, height: MAP_H, transform: `scale(${scale})` }} onClick={onGroundClick}>
             {target && <span className="gw-marker" style={{ left: target.x * TILE, top: target.y * TILE }} aria-hidden />}
-            <button
-              type="button"
-              className="gw-plot"
-              style={{ left: PLOT.x * TILE, top: PLOT.y * TILE, width: PLOT.w * TILE, height: PLOT.h * TILE, zIndex: (PLOT.y + PLOT.h) * 10 }}
-              aria-label="Your garden plot. Hear what's growing from your numbers."
-              onClick={onPlotClick}
-              onFocus={showPlot}
-            >
-              <span className="gw-tag">Your garden</span>
-            </button>
-            {BUILDINGS.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                className="gw-bld"
-                style={{ left: b.x * TILE, top: (b.y - 1) * TILE, width: b.w * TILE, height: (b.h + 1) * TILE, zIndex: (b.y + b.h) * 10 }}
-                aria-label={`${b.name}. Opens ${b.opens}.`}
-                onClick={onBuildingClick(b)}
-                onFocus={() => describe(b)}
-                onMouseEnter={() => describe(b)}
-              >
-                <span className="gw-bld__shadow" aria-hidden />
-                <BuildingArt building={b} />
-                <span className="gw-tag">{b.name}</span>
-              </button>
-            ))}
+            <Places onBuilding={onBuildingClick} onDescribe={onDescribe} onPlot={onPlotClick} onPlotFocus={onPlotFocus} />
             <div
               className={`gw-sprout${reduced ? " is-still" : ""}`}
               style={{ transform: `translate(${pos.x * TILE}px, ${pos.y * TILE - 3}px)`, zIndex: (pos.y + 1) * 10 + 5 }}
@@ -254,8 +282,8 @@ export default function GardenWorld({ profile, metrics, plan, go }) {
           {showPad ? "Hide D-pad" : "Show D-pad"}
         </button>
       </div>
-      {showPad && <DPad walk={walker.walk} release={walker.release} interact={interact} />}
-      <ListMenu label="Go to a place in town" items={places} columns={bottom.w >= 520 ? 3 : 2} onSelect={onPick} autoFocus={false} className="gw-goto" />
+      {showPad && <DPad walk={walker.walk} release={walker.release} interact={stableInteract} />}
+      <GoToList label="Go to a place in town" items={PLACES} columns={bottom.w >= 520 ? 3 : 2} onSelect={onPick} autoFocus={false} className="gw-goto" />
     </div>
   );
 
