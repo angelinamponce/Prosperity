@@ -21,15 +21,29 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Node 24's npm reads the lockfile as written; Node 20's npm 10 rejected it.
+          node-version: "24"
           cache: npm
           cache-dependency-path: my-app/package-lock.json
-      - name: Install and build
+      - name: Install
+        working-directory: my-app
+        run: npm ci
+      - name: Test
+        working-directory: my-app
+        run: CI=true npm test -- --watchAll=false
+      - name: Build
         working-directory: my-app
         env:
           CI: false
+          # Baked into the bundle at build time. The anon key is public by design; access is enforced by Supabase row-level security.
+          REACT_APP_SUPABASE_URL: ${{ secrets.REACT_APP_SUPABASE_URL }}
+          REACT_APP_SUPABASE_ANON_KEY: ${{ secrets.REACT_APP_SUPABASE_ANON_KEY }}
         run: |
-          npm ci
+          # Never publish a site whose sign-in can't reach Supabase.
+          if [ -z "$REACT_APP_SUPABASE_URL" ] || [ -z "$REACT_APP_SUPABASE_ANON_KEY" ]; then
+            echo "::error::Add the REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY repository secrets."
+            exit 1
+          fi
           npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
