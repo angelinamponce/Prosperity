@@ -9,3 +9,4 @@ export * from "./hooks";
 export { antdTheme } from "./antdTheme";
 export * from "./celebrate";
 export * from "./term";
+export * from "./stages";

@@ -35,6 +35,8 @@ body:has(.ps-root) { margin: 0; background: var(--ps-bg); }
 .ps-body { font-size: var(--ps-text-md); color: var(--ps-ink-2); }
 .ps-small { font-size: var(--ps-text-sm); color: var(--ps-ink-3); }
 .ps-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+/* Read by screen readers, hidden on screen. */
+.ps-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* ---------- Logo: leaves sway when its link is hovered ---------- */
 .ps-logo__leaf { transform-box: view-box; transition: transform 600ms var(--ps-spring); }
@@ -80,24 +82,39 @@ a:hover .ps-logo .ps-logo__leaf--l { transform: rotate(12deg) scale(1.08); }
   font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
+  /* Variants set the parts; the shadow is always composed the same way so focus rings keep the ledge. */
+  --ledge: 0 0 0 transparent;
+  --lift: 0 0 0 transparent;
+  --sheen: inset 0 0 0 transparent;
+  box-shadow: var(--ledge), var(--lift), var(--sheen);
   transition: background var(--ps-fast) var(--ps-ease), border-color var(--ps-fast) var(--ps-ease),
     box-shadow var(--ps-fast) var(--ps-ease), transform var(--ps-fast) var(--ps-ease);
 }
 .ps-btn:hover:not(:disabled) { transform: translateY(-1px); }
-.ps-btn:active:not(:disabled) { transform: translateY(0) scale(0.97); transition-duration: 60ms; }
-.ps-btn:focus-visible { box-shadow: var(--ps-focus); border-radius: var(--ps-radius-full); }
+/* Pressing sinks the button onto its ledge. */
+.ps-btn:active:not(:disabled) { transform: translateY(var(--ps-press-depth)); --ledge: 0 0 0 transparent; --lift: 0 0 0 transparent; transition-duration: 60ms; }
+.ps-btn:focus-visible { box-shadow: var(--ledge), var(--ps-focus); border-radius: var(--ps-radius-full); }
 .ps-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .ps-btn--primary, .ps-root a.ps-btn--primary {
   background: linear-gradient(180deg, var(--ps-brand-500) 0%, var(--ps-brand-600) 100%);
   color: var(--ps-ink-inverse);
-  box-shadow: 0 1px 2px rgba(20, 48, 33, 0.25), 0 6px 14px -6px rgba(47, 107, 72, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  font-weight: 600;
+  --ledge: 0 var(--ps-press-depth) 0 var(--ps-ledge-primary);
+  --lift: 0 8px 16px -8px rgba(47, 107, 72, 0.55);
+  --sheen: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
-.ps-btn--primary:hover:not(:disabled) { background: linear-gradient(180deg, var(--ps-brand-600) 0%, var(--ps-brand-700) 100%); box-shadow: 0 2px 4px rgba(20, 48, 33, 0.25), 0 10px 20px -8px rgba(47, 107, 72, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.16); }
-.ps-btn--secondary, .ps-root a.ps-btn--secondary { background: var(--ps-surface); color: var(--ps-ink); border-color: var(--ps-border-strong); box-shadow: var(--ps-shadow-sm); }
+.ps-btn--primary:hover:not(:disabled) { background: linear-gradient(180deg, var(--ps-brand-600) 0%, var(--ps-brand-700) 100%); --lift: 0 12px 20px -8px rgba(47, 107, 72, 0.6); }
+.ps-btn--secondary, .ps-root a.ps-btn--secondary {
+  background: var(--ps-surface);
+  color: var(--ps-ink);
+  border-color: var(--ps-border-strong);
+  --ledge: 0 var(--ps-press-depth) 0 var(--ps-ledge-neutral);
+}
 .ps-btn--secondary:hover:not(:disabled) { background: var(--ps-surface-sunken); }
 .ps-btn--ghost, .ps-root a.ps-btn--ghost { background: transparent; color: var(--ps-ink-2); }
 .ps-btn--ghost:hover:not(:disabled) { background: var(--ps-surface-sunken); color: var(--ps-ink); }
-.ps-btn--sm { height: 32px; padding: 0 var(--ps-space-3); font-size: var(--ps-text-sm); }
+.ps-btn--ghost:active:not(:disabled) { transform: scale(0.97); }
+.ps-btn--sm { height: 32px; padding: 0 var(--ps-space-3); font-size: var(--ps-text-sm); --ps-press-depth: 2px; }
 .ps-btn--block { width: 100%; }
 .ps-btn .anticon { font-size: 0.95em; }
 

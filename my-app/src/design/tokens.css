@@ -40,6 +40,10 @@
   --ps-negative-fill: #ef9e85; /* bars and dots, never text */
   --ps-warning: #8f5f00;
   --ps-warning-soft: #fcf3e2;
+  /* Nudges reuse the gentle setback coral, so "worth a look" never reads as an alarm. Pair with an icon or label. */
+  --ps-nudge: var(--ps-negative);
+  --ps-nudge-soft: var(--ps-negative-soft);
+  --ps-nudge-fill: var(--ps-negative-fill);
   --ps-warning-fill: #e8b04a; /* bars and dots, never text */
 
   /* Chart categorical slots, validated for colorblind separation in this order */
@@ -88,6 +92,10 @@
   --ps-shadow-lg: 0 4px 10px rgba(35, 77, 51, 0.05), 0 32px 64px -24px rgba(35, 77, 51, 0.22);
   --ps-gradient-brand: linear-gradient(135deg, var(--ps-brand-500) 0%, var(--ps-brand-700) 100%);
   --ps-gradient-soft: linear-gradient(135deg, var(--ps-brand-50) 0%, #fbfbf3 100%);
+  /* Chunky buttons sit on a thin ledge that disappears when pressed */
+  --ps-press-depth: 3px;
+  --ps-ledge-primary: var(--ps-brand-800);
+  --ps-ledge-neutral: var(--ps-border-strong);
 
   /* Motion */
   --ps-ease: cubic-bezier(0.2, 0.8, 0.2, 1);

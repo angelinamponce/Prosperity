@@ -3,7 +3,7 @@ import { FullBodyArt, HeadArt } from "./mascotArt";
 /**
  * Sprout, the Prosperity money guide.
  * variant: "full" (whole body) or "head" (round avatar)
- * mood:    "idle" (blinks, leaves sway), "wave" (waves hello), "thinking" (gentle bob)
+ * mood:    "idle" (blinks, leaves sway), "wave" (waves hello), "thinking" (gentle bob), "cheer" (two happy hops)
  * label:   pass a label when the mascot stands alone; leave it out when nearby text already says "Sprout".
  * All motion stops when the visitor prefers reduced motion (see sprout.css).
  */

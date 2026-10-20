@@ -20,7 +20,9 @@ import {
   Ring,
   Slider,
   Sparkline,
+  StageIcon,
   Waterfall,
+  duration,
   money,
   moneyShort,
   pct,
@@ -107,6 +109,30 @@ function Nav({ logoRef }) {
 
 // ---------- Hero ----------
 
+// What Sprout says as the slider moves. Encourages any extra amount, and reminds people not to overstretch.
+function sproutLine(extra, monthsSaved) {
+  if (extra === 0) return { tier: 0, mood: "idle", text: "Minimums still get you there. Slide to see what a little extra does." };
+  const sooner = monthsSaved > 0 ? `${duration(monthsSaved)} sooner` : "sooner";
+  if (extra < 300) return { tier: 1, mood: "cheer", text: `Even ${money(extra)} a month gets you there ${sooner}. Small steps count!` };
+  if (extra < 700) return { tier: 2, mood: "cheer", text: `Debt-free ${sooner} than paying only the minimums. Nice momentum!` };
+  return { tier: 3, mood: "cheer", text: `Debt-free ${sooner}! Only add what fits your budget comfortably, though.` };
+}
+
+// Repeats `text` to screen readers once the slider settles, instead of on every step.
+function useSettledAnnouncement(text, delay = 800) {
+  const [spoken, setSpoken] = useState("");
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return undefined;
+    }
+    const id = setTimeout(() => setSpoken(text), delay);
+    return () => clearTimeout(id);
+  }, [text, delay]);
+  return spoken;
+}
+
 function HeroPreview() {
   const [extra, setExtra] = useState(300);
   const stageRef = useRef(null);
@@ -118,6 +144,8 @@ function HeroPreview() {
   const labels = Array.from({ length: len }, (_, i) => addMonths(NOW, i));
   const h = profile.history;
   const rates = h.income.map((inc, i) => (inc - h.spending[i] - metrics.minDebt) / inc);
+  const line = sproutLine(extra, base.months - plan.months);
+  const spoken = useSettledAnnouncement(line.text);
 
   // Floating cards drift a little slower than the page as you scroll.
   useEffect(() => {
@@ -182,6 +210,12 @@ function HeroPreview() {
           <div style={{ marginTop: 16 }}>
             <Slider label="Extra payment each month" value={extra} min={0} max={1000} step={25} format={money} onChange={setExtra} />
           </div>
+          <div className="lp-react">
+            {/* Remounting on a new tier replays the cheer. */}
+            <SproutMascot key={line.tier} variant="head" size={44} mood={line.mood} />
+            <p className="lp-react__bubble" aria-hidden>{line.text}</p>
+            <span className="ps-sr-only" aria-live="polite">{spoken}</span>
+          </div>
         </div>
 
         <div className="ps-card lp-float lp-float--a" aria-hidden>
@@ -221,7 +255,7 @@ function Hero({ ready }) {
         </p>
         <div className="lp-hero__ctas lp-enter" style={{ "--i": 3 }}>
           <Link to="/signup" className="ps-btn ps-btn--primary lp-btn-lg">
-            Get started <ArrowRightOutlined />
+            Plant your first seed <ArrowRightOutlined />
           </Link>
           <a href="#how-it-works" className="ps-btn ps-btn--secondary lp-btn-lg" onClick={(e) => scrollToId(e, "how-it-works")}>
             See how it works
@@ -378,30 +412,42 @@ function Showcase() {
 
 // ---------- How it works ----------
 
+// A three-stop path: each step grows Sprout a little, the same way the app does.
 function HowItWorks() {
   const steps = [
-    { icon: <FormOutlined />, title: "Tell us about your money", body: "Income, spending, savings and debts. About five short pages, no bank login." },
-    { icon: <SwapOutlined />, title: "We do the math", body: "Prosperity calculates your cash flow, health score, payoff dates and long-term outlook." },
-    { icon: <BulbOutlined />, title: "Follow your plan", body: "Get ranked next steps and adjust sliders to see how each choice changes your future." },
+    { stage: "seed", icon: <FormOutlined />, tag: "A few minutes", title: "Plant a seed", body: "Tell us about your income, spending, savings and debts. About five short pages, no bank login." },
+    { stage: "sprout", icon: <SwapOutlined />, tag: "Instant", title: "Watch it sprout", body: "We do the math: your cash flow, health score, debt-free date and long-term outlook." },
+    { stage: "tree", icon: <BulbOutlined />, tag: "At your pace", title: "Grow your plan", body: "Follow ranked next steps, learn the money words as you go, and watch Sprout grow with you." },
   ];
   return (
     <section className="lp-section" id="how-it-works">
       <div className="lp-section__head ps-reveal">
         <p className="ps-eyebrow">How it works</p>
-        <h2 className="lp-h2">From numbers to a plan in three steps</h2>
+        <h2 className="lp-h2">Three small steps to your plan</h2>
+        <p className="lp-section__lede">Every step is short, and you can stop and pick up again anytime.</p>
       </div>
-      <ol className="lp-steps">
-        {steps.map((s, i) => (
-          <li key={s.title} className="lp-step ps-reveal" style={{ "--i": i }}>
-            <div className="lp-step__top">
-              <span className="lp-step__icon">{s.icon}</span>
-              <span className="lp-step__num">0{i + 1}</span>
-            </div>
-            <h3 className="ps-h3">{s.title}</h3>
-            <p className="ps-body">{s.body}</p>
-          </li>
-        ))}
-      </ol>
+      <div className="lp-quest">
+        <svg className="lp-quest__path" viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden>
+          <path d="M100 40 C 200 40, 200 88, 300 88 S 400 40, 500 40" vectorEffect="non-scaling-stroke" />
+        </svg>
+        <ol className="lp-quest__list">
+          {steps.map((s, i) => (
+            <li key={s.title} className="lp-quest__stop ps-reveal" style={{ "--i": i }}>
+              <span className="lp-quest__node">
+                <StageIcon stage={s.stage} size={44} />
+              </span>
+              <div className="lp-quest__text">
+                <p className="lp-quest__meta">
+                  <span className="ps-eyebrow">Step {i + 1}</span>
+                  <span className="lp-quest__tag">{s.icon} {s.tag}</span>
+                </p>
+                <h3 className="ps-h3">{s.title}</h3>
+                <p className="ps-body">{s.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
     </section>
   );
 }
@@ -441,10 +487,10 @@ function About() {
 function CtaBand() {
   return (
     <section className="lp-cta ps-reveal">
-      <h2 className="lp-cta__title">See your own plan</h2>
+      <h2 className="lp-cta__title">Ready to see your own plan?</h2>
       <p className="lp-cta__lede">It takes a few minutes, and you can change any answer later.</p>
       <Link to="/signup" className="ps-btn lp-btn-lg lp-cta__btn">
-        Get started <ArrowRightOutlined />
+        Plant your first seed <ArrowRightOutlined />
       </Link>
     </section>
   );

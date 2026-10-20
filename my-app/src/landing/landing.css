@@ -138,23 +138,43 @@
 .lp-showcase__panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--ps-space-5); }
 .lp-showcase__swap { animation: ps-enter 450ms var(--ps-ease) both; }
 
-/* Steps */
-.lp-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ps-space-5); }
-.lp-step {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ps-space-2);
-  padding: var(--ps-space-6);
-  border-radius: var(--ps-radius-lg);
+/* Quest map: three stops on a winding path. Node centers line up with the path's points (x at 1/6, 1/2, 5/6). */
+.lp-quest { position: relative; }
+.lp-quest__path { position: absolute; top: 0; left: 0; width: 100%; height: 120px; overflow: visible; }
+.lp-quest__path path { fill: none; stroke: var(--ps-brand-300); stroke-width: 3; stroke-dasharray: 2 10; stroke-linecap: round; }
+.lp-quest__list { position: relative; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ps-space-6); }
+.lp-quest__stop { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--ps-space-4); }
+.lp-quest__stop:nth-child(2) { margin-top: 48px; }
+.lp-quest__node {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
   background: var(--ps-surface);
-  border: 1px solid var(--ps-border);
-  box-shadow: var(--ps-shadow-sm);
-  transition: transform var(--ps-med) var(--ps-ease), box-shadow var(--ps-med) var(--ps-ease), opacity 700ms var(--ps-ease);
+  border: 3px solid var(--ps-brand-200);
+  box-shadow: 0 4px 0 var(--ps-brand-100), var(--ps-shadow-sm);
+  transition: transform var(--ps-med) var(--ps-spring), border-color var(--ps-med) var(--ps-ease);
 }
-.lp-step.is-visible:hover { transform: translateY(-4px); box-shadow: var(--ps-shadow-md); }
-.lp-step__top { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--ps-space-3); }
-.lp-step__icon { width: 44px; height: 44px; border-radius: var(--ps-radius-md); display: grid; place-items: center; background: var(--ps-brand-50); color: var(--ps-brand-600); font-size: 20px; }
-.lp-step__num { font-size: var(--ps-text-sm); font-weight: 600; color: var(--ps-ink-3); font-variant-numeric: tabular-nums; }
+.lp-quest__stop:hover .lp-quest__node { transform: translateY(-4px) scale(1.04); border-color: var(--ps-brand-400); }
+.lp-quest__text { display: flex; flex-direction: column; gap: var(--ps-space-2); max-width: 300px; }
+.lp-quest__meta { display: flex; align-items: center; justify-content: center; gap: var(--ps-space-2); flex-wrap: wrap; }
+.lp-quest__tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: var(--ps-radius-full); background: var(--ps-brand-50); color: var(--ps-brand-700); font-size: var(--ps-text-xs); font-weight: 500; }
+
+/* Sprout reacting to the hero slider */
+.lp-react { display: flex; align-items: center; gap: var(--ps-space-3); margin-top: var(--ps-space-4); padding-top: var(--ps-space-4); border-top: 1px dashed var(--ps-border); }
+.lp-react__bubble {
+  flex: 1;
+  min-height: 2.9em;
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--ps-brand-50);
+  color: var(--ps-ink-2);
+  font-size: var(--ps-text-sm);
+  line-height: 1.4;
+}
 
 /* About */
 .lp-about { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: start; }
@@ -176,7 +196,7 @@
 }
 .lp-cta__title { font-family: var(--ps-font-display); font-size: clamp(2rem, 3.6vw, 2.75rem); font-weight: 400; letter-spacing: -0.01em; }
 .lp-cta__lede { margin-top: var(--ps-space-3); font-size: var(--ps-text-lg); color: rgba(255, 255, 255, 0.78); }
-.ps-root a.lp-cta__btn { margin-top: var(--ps-space-8); background: #fff; color: var(--ps-brand-800); box-shadow: var(--ps-shadow-md); }
+.ps-root a.lp-cta__btn { margin-top: var(--ps-space-8); background: #fff; color: var(--ps-brand-800); font-weight: 600; --ledge: 0 var(--ps-press-depth) 0 rgba(0, 0, 0, 0.28); --lift: var(--ps-shadow-md); }
 .ps-root a.lp-cta__btn:hover { background: var(--ps-brand-50); }
 
 /* Footer */
@@ -216,7 +236,14 @@
   .lp-feature__body { display: none; }
   .lp-feature.is-active .lp-feature__body { display: block; }
   .lp-showcase__panel { min-height: 0; padding: var(--ps-space-4); }
-  .lp-steps { grid-template-columns: minmax(0, 1fr); }
+  /* The path runs down the left side on phones. */
+  .lp-quest__path { display: none; }
+  .lp-quest__list { grid-template-columns: minmax(0, 1fr); gap: var(--ps-space-8); }
+  .lp-quest__stop, .lp-quest__stop:nth-child(2) { position: relative; margin-top: 0; flex-direction: row; align-items: flex-start; text-align: left; }
+  .lp-quest__stop:not(:last-child)::before { content: ""; position: absolute; left: 31px; top: 70px; bottom: calc(-1 * var(--ps-space-8) + 6px); border-left: 3px dotted var(--ps-brand-300); }
+  .lp-quest__node { width: 64px; height: 64px; flex-shrink: 0; }
+  .lp-quest__node svg { width: 36px; height: 36px; }
+  .lp-quest__meta { justify-content: flex-start; }
   .lp-cta { margin: 0 var(--ps-space-4) 64px; padding: 56px var(--ps-space-5); }
   .lp-footer { padding: var(--ps-space-6) var(--ps-space-4) var(--ps-space-8); }
 }
@@ -224,4 +251,6 @@
 @media (prefers-reduced-motion: reduce) {
   .lp-float { animation: none; }
   .lp-preview__stage { transform: none; }
+  .lp-quest__node { transition: none; }
+  .lp-quest__stop:hover .lp-quest__node { transform: none; }
 }
