@@ -2,9 +2,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRightOutlined } from "@ant-design/icons";
 import { AnimatedNumber, Button, Card, ChartCard, Delta, LineChart, Ring, Sprout, StackedBar, money, moneyShort, pct, useCelebration } from "../../design";
 import { buildRecommendations, gradeBreakdown } from "../finance";
-import { EmptyState, PageHeader, RecommendationList, StatTile } from "../components";
+import { EmptyState, RecommendationList, StatTile } from "../components";
 import { SuggestedQuestions } from "../../sprout";
-import { Explain } from "../glossary";
+import { DASHBOARD_TERMS, Explain, GLOSSARY } from "../glossary";
+import { planSummary } from "../summaries";
+import { Greeting, SummaryStrip, TodaysQuest } from "../home/HomeTop";
+import { useGame } from "../../game";
+import { pickQuest } from "../../game/quest";
+import { BANK } from "../../quiz/bank";
+import { dueCounts } from "../../quiz/select";
+
+// Dashboard words first (they appear on these pages), then the quiz words.
+const WORDS = [...DASHBOARD_TERMS, ...Object.keys(GLOSSARY).filter((k) => !DASHBOARD_TERMS.includes(k))].map((key) => ({ key, ...GLOSSARY[key] }));
 
 const MILESTONE_KEY = "prosperity.celebrated.emergency";
 
@@ -50,11 +59,6 @@ function MilestoneBanner({ months, celebrate }) {
   );
 }
 
-function greeting() {
-  const h = new Date().getHours();
-  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-}
-
 export default function Overview({ profile, metrics: m, plan, go }) {
   const grade = useMemo(() => gradeBreakdown(m), [m]);
   const recs = useMemo(() => buildRecommendations(profile, m, plan), [profile, m, plan]);
@@ -73,21 +77,30 @@ export default function Overview({ profile, metrics: m, plan, go }) {
     "Explain my health score",
   ];
   const lowest = [...grade.parts].sort((a, b) => a.score - b.score).slice(0, 2).map((p) => p.key);
-  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-
-  const showNextStep = () => {
-    setOpenId(recs[0]?.id ?? null);
-    document.getElementById("next-steps")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const game = useGame();
+  const sentences = useMemo(() => planSummary(profile, m, plan), [profile, m, plan]);
+  const quest =
+    game?.ready &&
+    pickQuest({
+      fromSurvey: Boolean(profile.fromSurvey),
+      recs,
+      progress: game.progress,
+      words: WORDS,
+      dueCount: Object.values(dueCounts(BANK, game.progress.quiz)).reduce((a, b) => a + b, 0),
+    });
 
   return (
     <>
-      <PageHeader
-        eyebrow={today}
-        title={profile.name ? `${greeting()}, ${profile.name.split(" ")[0]}` : `${greeting()}!`}
-        description="Here's a friendly look at where you stand, plus a few small steps that will make the biggest difference."
-        action={<Button iconRight={<ArrowRightOutlined />} onClick={showNextStep}>Show me my next step</Button>}
-      />
+      <Greeting name={profile.name} />
+      <div className="db-grid">
+        {quest && <TodaysQuest quest={quest} go={go} className="span-7 ps-enter" style={{ "--i": 1 }} />}
+        <SummaryStrip sentences={sentences} fromSurvey={profile.fromSurvey} className={`${quest ? "span-5" : "span-12"} ps-enter`} style={{ "--i": 2 }} />
+      </div>
+
+      <div className="hm-section">
+        <h2 className="ps-h2">The details</h2>
+        <span className="ps-small">Every number, chart and next step</span>
+      </div>
 
       <MilestoneBanner months={m.emergencyMonths} celebrate={celebrate} />
 

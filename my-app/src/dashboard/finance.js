@@ -236,6 +236,7 @@ export function buildRecommendations(p, m, plan) {
     recs.push({
       id: "starter-ef",
       title: "Build a starter emergency fund",
+      habit: "I set up a regular transfer into savings",
       because: `You have ${m.emergencyMonths.toFixed(1)} months of essentials saved.`,
       impact: `Target ${fmt(m.essential)}`,
       page: "goals",
@@ -245,6 +246,7 @@ export function buildRecommendations(p, m, plan) {
     recs.push({
       id: "match",
       title: "Get your full 401(k) match (it's free money)",
+      habit: "I raised my 401(k) contribution to get the full match",
       because: `You contribute ${(p.retirement.contributionRate * 100).toFixed(0)}% but your employer matches up to ${(p.retirement.matchUpTo * 100).toFixed(0)}%.`,
       impact: `+${fmt(m.matchMissedAnnual)}/yr free`,
       page: "invest",
@@ -257,6 +259,7 @@ export function buildRecommendations(p, m, plan) {
     recs.push({
       id: "avalanche",
       title: `Pay off your ${hi.name.toLowerCase()} first`,
+      habit: `I'm sending extra payments to my ${hi.name.toLowerCase()}`,
       because: `At ${(hi.apr * 100).toFixed(1)}% interest a year, this debt costs you more than almost any investment could safely earn.`,
       impact: `Save ${fmt(base.interest - planned.interest)} interest`,
       page: "debt",
@@ -268,6 +271,7 @@ export function buildRecommendations(p, m, plan) {
     recs.push({
       id: "ef",
       title: "Finish your 6-month emergency fund",
+      habit: "I set up a monthly transfer to my emergency fund",
       because: `You're at ${m.emergencyMonths.toFixed(1)} of ${EMERGENCY_TARGET_MONTHS} months.`,
       impact: Number.isFinite(left) ? `${left} months to go` : "Add a monthly amount",
       page: "goals",
@@ -277,6 +281,7 @@ export function buildRecommendations(p, m, plan) {
     recs.push({
       id: "trim",
       title: "Put some flexible spending to work",
+      habit: "I picked one flexible expense to trim",
       because: `About ${fmt(m.discretionary)}/mo of your spending is flexible.`,
       impact: `10% = ${fmt(m.discretionary * 0.1 * 12)}/yr`,
       page: "cash-flow",

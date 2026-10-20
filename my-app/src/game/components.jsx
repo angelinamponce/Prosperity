@@ -4,7 +4,7 @@ import { ArrowRightOutlined } from "@ant-design/icons";
 import { Button, StageIcon, useCelebration } from "../design";
 import { useGame } from "./store";
 
-const QUIET_SOURCES = ["learnTerm", "answerQuestion"];
+const QUIET_SOURCES = ["learnTerm", "answerQuestion", "undoMission"];
 
 const xpLine = (info) => (info.maxed ? "Top level reached" : `${info.toNext} XP to level ${info.level + 1}`);
 

@@ -1,4 +1,4 @@
-import { debtFreeSummary, humanDuration } from "../summaries";
+import { debtFreeSummary, humanDuration, planSummary } from "../summaries";
 import { addMonths, simulatePayoff } from "../finance";
 import { sampleProfile } from "../sampleProfile";
 
@@ -62,5 +62,43 @@ describe("debtFreeSummary", () => {
     expect(s.plan.date).toBeNull();
     const helped = debtFreeSummary(stuck, { extra: 300, now });
     expect(helped.sentence).toBe(`With $300 extra a month, you could be debt-free by ${helped.plan.date}. Paying only the minimums, it might never be paid off.`);
+  });
+});
+
+describe("planSummary", () => {
+  const { computeMetrics } = require("../finance");
+  const plan = { extraDebt: 300, strategy: "avalanche" };
+  const text = (sentence) => sentence.map((p) => (typeof p === "string" ? p : p.value)).join("");
+
+  test("the sample plan: money left, a named-plan debt date, and the cushion, each with its math", () => {
+    const m = computeMetrics(sampleProfile);
+    const s = planSummary(sampleProfile, m, plan, now);
+    expect(s).toHaveLength(3);
+    expect(text(s[0])).toBe(`You keep about $${Math.round(m.surplus).toLocaleString("en-US")} each month after bills and minimum debt payments.`);
+    const debt = debtFreeSummary(sampleProfile.debts, { extra: 300, now });
+    expect(text(s[1])).toBe(`On your plan with $300 extra a month, you'd be debt-free by ${debt.plan.date}.`);
+    expect(s[1][1].calc).toMatch(/plus \$300 extra a month, highest interest first/);
+    expect(s[1][1].calc).toContain(`Paying only the minimums, it would be ${debt.base.date}.`);
+    expect(s[2][1].calc).toMatch(/saved ÷ .* of essentials a month = 3\.\d months/);
+  });
+
+  test("names the snowball plan when that's the chosen strategy", () => {
+    const s = planSummary(sampleProfile, computeMetrics(sampleProfile), { extraDebt: 100, strategy: "snowball" }, now);
+    expect(text(s[1])).toMatch(/^On your plan with \$100 extra a month/);
+    expect(s[1][1].calc).toMatch(/smallest balance first/);
+  });
+
+  test("no debt and no savings: kind sentences, no made-up dates", () => {
+    const profile = { ...sampleProfile, debts: [], accounts: [{ name: "Checking", kind: "cash", balance: 500 }] };
+    const s = planSummary(profile, computeMetrics(profile), plan, now);
+    expect(text(s[1])).toMatch(/don't have any debt/);
+    expect(text(s[2])).toMatch(/haven't started an emergency fund yet/);
+    expect(s.flat().filter((p) => typeof p === "object")).toHaveLength(1); // only the monthly amount is a number
+  });
+
+  test("spending more than income is described without blame", () => {
+    const profile = { ...sampleProfile, income: [{ name: "Pay", monthly: 2000 }] };
+    const s = planSummary(profile, computeMetrics(profile), plan, now);
+    expect(text(s[0])).toMatch(/^Right now, bills and minimum payments use up all of your \$2,000 a month\. That's a common place to start/);
   });
 });

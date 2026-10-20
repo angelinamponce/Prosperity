@@ -64,3 +64,68 @@ export function debtFreeSummary(debts, { extra = 0, strategy = "avalanche", now 
       : `Even with no extra, moving each paid-off debt's payment to the next one gets you debt-free about ${humanDuration(sooner)} sooner than paying only the minimums.`;
   return { ...out, sentence, detail: `That's ${out.plan.date} on this plan, instead of ${out.base.date} with minimums only.` };
 }
+
+const STRATEGY = { avalanche: "highest interest first", snowball: "smallest balance first" };
+
+/**
+ * Two or three short sentences for the dashboard summary strip. Each sentence is a list of parts:
+ * plain strings, or { value, title, calc } numbers the player can tap to see how they were worked out.
+ */
+export function planSummary(profile, m, plan, now = new Date()) {
+  const sentences = [];
+
+  if (m.surplus > 0) {
+    sentences.push([
+      "You keep about ",
+      {
+        value: money(m.surplus),
+        title: "Left over each month",
+        calc: `${money(m.income)} income − ${money(m.expenses)} spending − ${money(m.minDebt)} minimum debt payments = ${money(m.surplus)}.`,
+      },
+      " each month after bills and minimum debt payments.",
+    ]);
+  } else {
+    sentences.push([
+      "Right now, bills and minimum payments use up all of your ",
+      {
+        value: money(m.income),
+        title: "Monthly income",
+        calc: `${money(m.income)} income − ${money(m.expenses)} spending − ${money(m.minDebt)} minimum debt payments = ${money(m.surplus)}.`,
+      },
+      " a month. That's a common place to start, and small changes add up fast.",
+    ]);
+  }
+
+  const debt = debtFreeSummary(profile.debts, { extra: plan.extraDebt, strategy: plan.strategy, now });
+  if (!debt.hasDebt) {
+    sentences.push([debt.sentence]);
+  } else if (debt.plan.date) {
+    const how = `Every minimum payment plus ${money(debt.extra)} extra a month, ${STRATEGY[plan.strategy] ?? STRATEGY.avalanche}, moving each paid-off debt's payment to the next.`;
+    sentences.push([
+      `On your plan with ${money(debt.extra)} extra a month, you'd be debt-free by `,
+      {
+        value: debt.plan.date,
+        title: "Your debt-free date",
+        calc: `${how} ${debt.base.date ? `Paying only the minimums, it would be ${debt.base.date}.` : "Paying only the minimums, it might never be paid off."}`,
+      },
+      ".",
+    ]);
+  } else {
+    sentences.push([debt.sentence]);
+  }
+
+  if (m.emergencyBalance > 0 && m.essential > 0) {
+    sentences.push([
+      "Your savings would cover about ",
+      {
+        value: `${m.emergencyMonths.toFixed(1)} months`,
+        title: "Emergency cushion",
+        calc: `${money(m.emergencyBalance)} saved ÷ ${money(m.essential)} of essentials a month = ${m.emergencyMonths.toFixed(1)} months. Many people aim for 3 to 6.`,
+      },
+      " of essential costs.",
+    ]);
+  } else {
+    sentences.push(["You haven't started an emergency fund yet. Even a small amount each week is a great start."]);
+  }
+  return sentences;
+}

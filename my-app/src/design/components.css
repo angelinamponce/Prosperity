@@ -404,6 +404,22 @@ a:hover .ps-logo .ps-logo__leaf--l { transform: rotate(12deg) scale(1.08); }
   transition: background var(--ps-fast) var(--ps-ease), border-color var(--ps-fast) var(--ps-ease);
 }
 .ps-term__btn:hover, .ps-term__btn[aria-expanded="true"] { background: var(--ps-brand-100); border-color: var(--ps-brand-300); }
+/* A tappable number: dotted underline says "there's more here", the bubble shows the math. */
+.ps-root .ps-calc__btn {
+  display: inline;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px dotted var(--ps-brand-400);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ps-ink);
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.ps-root .ps-calc__btn:hover, .ps-root .ps-calc__btn[aria-expanded="true"] { background: var(--ps-brand-50); border-bottom-style: solid; }
+.ps-calc { display: inline; }
 .ps-root .ps-term__btn:focus-visible { border-radius: 50%; }
 /* Hit area grows to 32px for touch without changing the look. */
 .ps-term__btn::after { content: ""; position: absolute; width: 32px; height: 32px; }

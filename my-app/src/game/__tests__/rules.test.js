@@ -163,3 +163,46 @@ describe("normalizeProgress", () => {
     expect(p.quiz).toEqual({ q: {}, topics: {}, befriended: {}, keepers: {} });
   });
 });
+
+describe("missions (honor system)", () => {
+  const done = (p, id = "match") => reduce(p, { type: "completeMission", id, title: "Get the match", at: 1 }, ctx).progress;
+  const undo = (p, id = "match") => reduce(p, { type: "undoMission", id }, ctx).progress;
+
+  test("completing a mission pays XP once", () => {
+    const p = done(emptyProgress());
+    expect(p.xp).toBe(XP.mission);
+    expect(p.missions.match).toMatchObject({ done: true, xp: XP.mission });
+    expect(done(p).xp).toBe(XP.mission); // completing again changes nothing
+  });
+
+  test("undo takes back exactly the XP the mission gave", () => {
+    const p = undo(done({ ...emptyProgress(), xp: 100 }));
+    expect(p.xp).toBe(100);
+    expect(p.missions.match).toMatchObject({ done: false, xp: 0 });
+  });
+
+  test("complete, undo and redo can never farm XP", () => {
+    let p = { ...emptyProgress(), xp: 100 };
+    for (let i = 0; i < 5; i += 1) p = undo(done(p));
+    expect(p.xp).toBe(100);
+    p = done(p);
+    expect(p.xp).toBe(100 + XP.mission);
+  });
+
+  test("each mission is separate, and undoing one leaves the others alone", () => {
+    let p = done(done(emptyProgress(), "match"), "trim");
+    expect(p.xp).toBe(2 * XP.mission);
+    p = undo(p, "trim");
+    expect(p.xp).toBe(XP.mission);
+    expect(p.missions.match.done).toBe(true);
+  });
+
+  test("undoing a mission that isn't done does nothing", () => {
+    const p = emptyProgress();
+    expect(reduce(p, { type: "undoMission", id: "nope" }, ctx).progress).toBe(p);
+  });
+
+  test("old saves without missions load fine", () => {
+    expect(normalizeProgress({ xp: 10 }).missions).toEqual({});
+  });
+});

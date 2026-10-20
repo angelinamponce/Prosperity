@@ -10,6 +10,7 @@ import { useUserFinances } from "../dashboard/useUserFinances";
 import { useTutorial } from "../dashboard/tutorial/useTutorial";
 import { tourSteps } from "../dashboard/tutorial/steps";
 import { EmptyState, PageSkeleton } from "../dashboard/components";
+import { FirstStep } from "../dashboard/home/HomeTop";
 import "../dashboard/dashboard.css";
 import { SproutChat, SproutLauncher, SproutProvider } from "../sprout";
 import { GameContext, GameFeed, GardenerChip, useGameStore } from "../game";
@@ -31,11 +32,11 @@ const PAGES = [
   { path: "invest", label: "Invest", icon: <LineChartOutlined />, Component: lazy(() => import("../dashboard/pages/Invest")) },
   { path: "future", label: "Future", icon: <RiseOutlined />, Component: lazy(() => import("../dashboard/pages/Future")) },
   { path: "goals", label: "Goals", icon: <FlagOutlined />, Component: lazy(() => import("../dashboard/pages/Goals")) },
-  { path: "quiz", label: "Quizzes", icon: <FormOutlined />, Component: lazy(() => import("../dashboard/pages/Quiz")) },
+  { path: "quiz", label: "Quizzes", icon: <FormOutlined />, dataFree: true, Component: lazy(() => import("../dashboard/pages/Quiz")) },
   // Full screen, reached from the Quizzes page rather than the nav.
   { path: "battle", label: "Quiz battle", nav: false, tab: false, fullscreen: true, Component: lazy(() => import("../battle/BattleScreen")) },
   // Not in the phone tab bar (it would be crowded); the level chip in the top bar links here instead.
-  { path: "progress", label: "Progress", icon: <TrophyOutlined />, tab: false, Component: lazy(() => import("../dashboard/pages/Progress")) },
+  { path: "progress", label: "Progress", icon: <TrophyOutlined />, tab: false, dataFree: true, Component: lazy(() => import("../dashboard/pages/Progress")) },
 ];
 
 const BASE = "/app/individual";
@@ -49,23 +50,6 @@ function LoadingState() {
       </div>
       <PageSkeleton />
     </div>
-  );
-}
-
-function NewUserState({ onExplore }) {
-  return (
-    <EmptyState
-      title="Let's grow your plan"
-      action={
-        <div className="db-empty__actions">
-          <Link to="/signup" className="ps-btn ps-btn--primary">Finish my survey</Link>
-          <Button variant="ghost" onClick={onExplore}>Explore with sample numbers</Button>
-        </div>
-      }
-    >
-      We don't have your income, savings or spending yet. The survey takes just a few minutes, and your dashboard fills in as soon as
-      you're done.
-    </EmptyState>
   );
 }
 
@@ -112,7 +96,10 @@ export default function UserDashboard() {
         : { ...sampleProfile, name: user.uid ? user.name ?? "" : sampleProfile.name },
     [mode, ownProfile, user.uid, user.name]
   );
-  const showPages = mode === "own" || mode === "sample";
+  // The tour walks through charts, so it waits until there are numbers to show.
+  const tourAllowed = mode === "own" || mode === "sample";
+  // Quizzes and Progress don't need survey numbers, so they work before the survey too.
+  const showPages = mode === "own" || mode === "sample" || (mode === "empty" && Boolean(page.dataFree));
   const metrics = useMemo(() => computeMetrics(profile), [profile]);
   const [plan, setPlan] = usePlan({
     extraDebt: 300,
@@ -192,7 +179,7 @@ export default function UserDashboard() {
   return (
     <GameContext.Provider value={game}>
       <SproutProvider scope="app" getContext={() => ({ profile: showPages ? profile : null, plan })}>
-        <div className="ps-root db" inert={(showPages && tutorial.open) || undefined}>
+        <div className="ps-root db" inert={(tourAllowed && tutorial.open) || undefined}>
           <aside className="db-side">
             <Link to={BASE} className="db-brand">
               <LogoMark />
@@ -242,7 +229,7 @@ export default function UserDashboard() {
           <main className="db-main">
             <div className="db-content">
               {mode === "loading" && <LoadingState />}
-              {mode === "empty" && <NewUserState onExplore={() => setExploringSample(true)} />}
+              {mode === "empty" && !showPages && <FirstStep onExplore={() => setExploringSample(true)} onQuiz={() => go("quiz")} />}
               {mode === "error" && <LoadErrorState onRetry={finances.retry} onExplore={() => setExploringSample(true)} />}
               {showPages && (
                 <Suspense fallback={<PageSkeleton />}>
@@ -259,7 +246,7 @@ export default function UserDashboard() {
           <SproutChat starters={SPROUT_STARTERS} />
         </div>
         <GameFeed />
-        {showPages && tutorial.open && (
+        {tourAllowed && tutorial.open && (
           <Suspense fallback={null}>
             <Tour
               steps={steps}

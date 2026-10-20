@@ -12,6 +12,8 @@ export const XP = {
   termLearned: 10,
   checkIn: 15,
   badge: 25,
+  // A mission is a habit the player says they did (honor system). Each one holds at most this much XP.
+  mission: 20,
 };
 
 // ---------- Quizzes ----------
@@ -187,6 +189,8 @@ export function emptyProgress() {
     // q: per-question history and review timing; topics: answers per topic.
     // befriended and keepers are filled in by battles and Greenhouse keepers later.
     quiz: { q: {}, topics: {}, befriended: {}, keepers: {} },
+    // missions[id] = { done, at, xp }: xp is what this mission currently holds (0 or XP.mission).
+    missions: {},
     // Classic is the default view; Garden mode arrives in a later phase.
     settings: { view: "classic", sound: false, instantText: false, speedRound: false },
   };
@@ -205,6 +209,7 @@ export function normalizeProgress(raw) {
     flags: { ...base.flags, ...obj(raw.flags, {}) },
     streak: { ...base.streak, ...obj(raw.streak, {}) },
     quiz: Object.fromEntries(Object.keys(base.quiz).map((k) => [k, obj(obj(raw.quiz, {})[k], {})])),
+    missions: obj(raw.missions, {}),
     settings: { ...base.settings, ...obj(raw.settings, {}) },
   };
 }
@@ -213,6 +218,7 @@ export function normalizeProgress(raw) {
  * Applies one game action and returns the new progress plus the events to celebrate.
  * Actions: { type: "learnTerm", key, title } | { type: "checkIn", week } | { type: "surveyDone" } | { type: "tourDone" }
  *        | { type: "answerQuestion", id, topic, difficulty, correct, assists: { hint, sprout } }
+ *        | { type: "completeMission", id, title } | { type: "undoMission", id }
  * Repeating an action never awards XP twice. ctx.termKeys lists the dashboard's money words.
  */
 export function reduce(progress, action, ctx = { termKeys: [] }) {
@@ -253,6 +259,23 @@ export function reduce(progress, action, ctx = { termKeys: [] }) {
       p = { ...p, quiz: res.quiz };
       // Wrong answers cost nothing; they just come back sooner.
       if (action.correct && res.due) addXp(quizXp(action.difficulty, action.assists), "Correct answer");
+      break;
+    }
+    case "completeMission": {
+      const prev = p.missions[action.id];
+      if (prev?.done) break;
+      // A mission never holds more than XP.mission, so complete, undo, redo can't add up.
+      const gain = XP.mission - (prev?.xp ?? 0);
+      p = { ...p, missions: { ...p.missions, [action.id]: { done: true, at: action.at ?? Date.now(), xp: XP.mission } } };
+      if (gain > 0) addXp(gain, `Mission done: ${action.title ?? "nice habit"}`);
+      break;
+    }
+    case "undoMission": {
+      const prev = p.missions[action.id];
+      if (!prev?.done) break;
+      // Undo takes back exactly what this mission gave.
+      p = { ...p, xp: Math.max(0, p.xp - (prev.xp ?? 0)), missions: { ...p.missions, [action.id]: { done: false, at: null, xp: 0 } } };
+      events.push({ type: "missionUndone", amount: prev.xp ?? 0 });
       break;
     }
     default:

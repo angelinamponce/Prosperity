@@ -185,6 +185,11 @@
 .db-rec__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--ps-med) var(--ps-ease); }
 .db-rec.is-open .db-rec__body { grid-template-rows: 1fr; }
 .db-rec__body > div { overflow: hidden; padding-left: 40px; display: flex; flex-direction: column; align-items: flex-start; gap: var(--ps-space-3); }
+/* Mission toggle inside a next step */
+.db-mission { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ps-space-2) var(--ps-space-3); padding: var(--ps-space-3); margin-bottom: var(--ps-space-1); border: 1px dashed var(--ps-brand-300); border-radius: var(--ps-radius-md); background: var(--ps-brand-50); }
+.db-mission.is-done { border-style: solid; }
+.db-mission__label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--ps-text-sm); font-weight: 600; color: var(--ps-positive); }
+.db-mission__undo { padding: 2px 4px; border: 0; background: none; color: var(--ps-primary); font: inherit; font-size: var(--ps-text-sm); font-weight: 600; text-decoration: underline; cursor: pointer; }
 .db-rec.is-open .db-rec__body > div { padding-bottom: var(--ps-space-4); }
 
 /* ---------- Loading and new-user states ---------- */

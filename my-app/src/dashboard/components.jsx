@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { DownOutlined } from "@ant-design/icons";
+import { CheckCircleFilled, CheckOutlined, DownOutlined } from "@ant-design/icons";
 import { AnimatedNumber, Badge, Button, Delta, Skeleton, Sparkline, Sprout } from "../design";
+import { useGame } from "../game/store";
+import { XP } from "../game/rules";
 
 export function PageHeader({ eyebrow, title, description, action }) {
   return (
@@ -35,8 +37,36 @@ export function StatTile({ label, value, format, delta, deltaFormat, goodWhen, n
   );
 }
 
+// "I did this" for a recommendation's habit. Honor system: +XP once, and undo takes it back.
+function MissionToggle({ rec, game, focusable }) {
+  const done = game.progress.missions[rec.id]?.done;
+  const tab = focusable ? 0 : -1;
+  if (done) {
+    return (
+      <div className="db-mission is-done">
+        <span className="db-mission__label">
+          <CheckCircleFilled aria-hidden /> Done: “{rec.habit}”
+        </span>
+        <button type="button" className="db-mission__undo" tabIndex={tab} onClick={() => game.dispatch({ type: "undoMission", id: rec.id })}>
+          Undo
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="db-mission">
+      <Button variant="secondary" size="sm" icon={<CheckOutlined />} tabIndex={tab} onClick={() => game.dispatch({ type: "completeMission", id: rec.id, title: rec.title })}>
+        I did this
+      </Button>
+      <span className="ps-small">“{rec.habit}” · +{XP.mission} XP · honor system</span>
+    </div>
+  );
+}
+
 // Accordion of recommendations. One open at a time; the height animates.
+// Inside the dashboard each one is also a mission the player can mark done.
 export function RecommendationList({ recs, openId, onToggle, go }) {
+  const game = useGame();
   return (
     <ol className="db-recs">
       {recs.map((r, i) => {
@@ -46,6 +76,7 @@ export function RecommendationList({ recs, openId, onToggle, go }) {
             <button type="button" className="db-rec__head" aria-expanded={open} onClick={() => onToggle(open ? null : r.id)}>
               <span className="db-rec__num">{i + 1}</span>
               <span className="db-rec__title">{r.title}</span>
+              {game?.ready && game.progress.missions[r.id]?.done && <Badge tone="positive" icon={<CheckOutlined />}>Done</Badge>}
               <Badge tone="brand" className="db-rec__impact">{r.impact}</Badge>
               <DownOutlined className="db-rec__chevron" />
             </button>
@@ -55,6 +86,7 @@ export function RecommendationList({ recs, openId, onToggle, go }) {
                 <Button variant="secondary" size="sm" onClick={() => go(r.page)} tabIndex={open ? 0 : -1}>
                   Open planner
                 </Button>
+                {game?.ready && r.habit && <MissionToggle rec={r} game={game} focusable={open} />}
               </div>
             </div>
           </li>
