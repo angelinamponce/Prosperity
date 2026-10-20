@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { CheckCircleFilled, CheckOutlined, DownOutlined } from "@ant-design/icons";
 import { AnimatedNumber, Badge, Button, Delta, Skeleton, Sparkline, Sprout } from "../design";
 import { useGame } from "../game/store";
@@ -38,9 +39,20 @@ export function StatTile({ label, value, format, delta, deltaFormat, goodWhen, n
 }
 
 // "I did this" for a recommendation's habit. Honor system: +XP once, and undo takes it back.
+// Visitors without an account can still use missions; they're told it's saved in this browser only.
+function GuestNote({ tab }) {
+  return (
+    <p className="ps-small db-mission__guest">
+      You're not signed in, so this is saved in this browser only.{" "}
+      <Link to="/signup" tabIndex={tab}>Create a free account</Link> to keep your progress anywhere.
+    </p>
+  );
+}
+
 function MissionToggle({ rec, game, focusable }) {
   const done = game.progress.missions[rec.id]?.done;
   const tab = focusable ? 0 : -1;
+  const guest = game.id === "guest";
   if (done) {
     return (
       <div className="db-mission is-done">
@@ -50,6 +62,7 @@ function MissionToggle({ rec, game, focusable }) {
         <button type="button" className="db-mission__undo" tabIndex={tab} onClick={() => game.dispatch({ type: "undoMission", id: rec.id })}>
           Undo
         </button>
+        {guest && <GuestNote tab={tab} />}
       </div>
     );
   }
@@ -59,6 +72,7 @@ function MissionToggle({ rec, game, focusable }) {
         I did this
       </Button>
       <span className="ps-small">“{rec.habit}” · +{XP.mission} XP · honor system</span>
+      {guest && <GuestNote tab={tab} />}
     </div>
   );
 }
