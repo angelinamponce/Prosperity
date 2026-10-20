@@ -1,0 +1,123 @@
+/* Game layer UI for the Classic dashboard. Rewards stay in the sage palette. */
+
+/* XP bar */
+.gm-xp { height: 8px; border-radius: var(--ps-radius-full); background: var(--ps-brand-100); overflow: hidden; }
+.gm-xp__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--ps-brand-400), var(--ps-brand-600));
+  transition: width var(--ps-slow) var(--ps-spring);
+}
+.gm-xp--lg { height: 14px; }
+
+/* Sidebar chip */
+.ps-root a.gm-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--ps-space-3);
+  padding: var(--ps-space-3);
+  border-radius: var(--ps-radius-md);
+  background: var(--ps-surface);
+  border: 1px solid var(--ps-border);
+  box-shadow: 0 2px 0 var(--ps-border);
+  color: var(--ps-ink);
+  transition: border-color var(--ps-fast) var(--ps-ease), transform var(--ps-fast) var(--ps-ease);
+}
+.ps-root a.gm-chip:hover { border-color: var(--ps-brand-300); }
+.ps-root a.gm-chip:active { transform: translateY(2px); box-shadow: none; }
+.gm-chip__icon { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; background: var(--ps-brand-50); }
+.gm-chip__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.gm-chip__top { display: flex; justify-content: space-between; gap: var(--ps-space-2); font-size: var(--ps-text-sm); }
+.gm-chip__top span { color: var(--ps-ink-3); }
+.gm-chip__meta { font-size: var(--ps-text-xs); color: var(--ps-ink-3); }
+.ps-root a.gm-chip--compact {
+  height: 32px;
+  gap: 4px;
+  padding: 0 10px 0 6px;
+  border-radius: var(--ps-radius-full);
+  box-shadow: none;
+  font-size: var(--ps-text-xs);
+  font-weight: 600;
+}
+
+/* Sprout grew a stage */
+.gm-stageup {
+  /* Rendered outside .ps-root (so the tour's inert area can't block it), so set the box model here. */
+  box-sizing: border-box;
+  width: min(420px, calc(100vw - 32px));
+  padding: var(--ps-space-8) var(--ps-space-6) var(--ps-space-6);
+  border: 1px solid var(--ps-brand-200);
+  border-radius: var(--ps-radius-xl);
+  background: var(--ps-surface);
+  box-shadow: var(--ps-shadow-lg);
+  color: var(--ps-ink);
+  font-family: var(--ps-font);
+  text-align: center;
+}
+.gm-stageup[open] { display: flex; flex-direction: column; align-items: center; gap: var(--ps-space-3); animation: gm-pop 420ms var(--ps-spring) both; }
+.gm-stageup::backdrop { background: rgba(16, 26, 20, 0.35); }
+.gm-stageup h2, .gm-stageup p { margin: 0; }
+.gm-stageup .ps-btn { margin-top: var(--ps-space-3); font: inherit; font-weight: 600; }
+.gm-stageup__art { display: flex; align-items: flex-end; gap: var(--ps-space-4); color: var(--ps-brand-400); font-size: 20px; }
+.gm-stageup__from { opacity: 0.55; }
+.gm-stageup__to { animation: gm-grow 700ms var(--ps-spring) 200ms both; transform-origin: 50% 100%; }
+@keyframes gm-pop { from { opacity: 0; transform: scale(0.92); } }
+@keyframes gm-grow { from { transform: scale(0.4); opacity: 0; } }
+
+/* Progress page */
+.gm-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--ps-space-6); align-items: center; }
+.gm-hero__art { width: 128px; height: 128px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle at 50% 40%, var(--ps-brand-50), var(--ps-brand-100)); }
+.gm-hero__level { display: flex; align-items: baseline; gap: var(--ps-space-2); flex-wrap: wrap; }
+.gm-hero__level .ps-h2 { font-size: var(--ps-text-3xl); }
+.gm-hero .gm-xp { margin: var(--ps-space-3) 0 var(--ps-space-2); }
+
+.gm-stages { list-style: none; margin: var(--ps-space-6) 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ps-space-2); }
+.gm-stage { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: var(--ps-space-3) var(--ps-space-1); border-radius: var(--ps-radius-md); text-align: center; font-size: var(--ps-text-xs); color: var(--ps-ink-3); }
+.gm-stage strong { font-size: var(--ps-text-sm); color: var(--ps-ink); font-weight: 600; }
+.gm-stage.is-locked svg { opacity: 0.35; filter: grayscale(1); }
+.gm-stage.is-current { background: var(--ps-brand-50); box-shadow: inset 0 0 0 2px var(--ps-brand-300); }
+
+.gm-earn { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.gm-earn li { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: var(--ps-space-3); align-items: center; padding: var(--ps-space-3) 0; border-top: 1px solid var(--ps-border); }
+.gm-earn li:first-child { border-top: 0; padding-top: 0; }
+.gm-earn__xp { justify-self: start; padding: 2px 8px; border-radius: var(--ps-radius-full); background: var(--ps-brand-50); color: var(--ps-brand-700); font-size: var(--ps-text-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
+.gm-earn__title { font-weight: 500; }
+.gm-done { display: inline-flex; align-items: center; gap: 4px; color: var(--ps-positive); font-size: var(--ps-text-sm); font-weight: 500; }
+
+.gm-badges { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--ps-space-3); }
+.gm-badge { display: flex; flex-direction: column; align-items: center; gap: var(--ps-space-2); padding: var(--ps-space-4) var(--ps-space-3); border-radius: var(--ps-radius-lg); border: 1px solid var(--ps-border); text-align: center; }
+.gm-badge__medal { position: relative; width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; background: var(--ps-brand-50); border: 3px solid var(--ps-brand-300); box-shadow: 0 3px 0 var(--ps-brand-200); }
+.gm-badge__name { font-weight: 600; font-size: var(--ps-text-sm); }
+.gm-badge__how { font-size: var(--ps-text-xs); color: var(--ps-ink-3); }
+.gm-badge.is-locked { background: var(--ps-surface-sunken); border-style: dashed; }
+.gm-badge.is-locked .gm-badge__medal { background: var(--ps-surface); border: 2px dashed var(--ps-border-strong); box-shadow: none; }
+.gm-badge.is-locked .gm-badge__medal svg { opacity: 0.3; filter: grayscale(1); }
+.gm-badge__lock { position: absolute; right: -4px; bottom: -4px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--ps-surface); border: 1px solid var(--ps-border-strong); color: var(--ps-ink-3); font-size: 11px; }
+
+.gm-streak { display: flex; align-items: baseline; gap: var(--ps-space-2); }
+.gm-streak__num { font-size: var(--ps-text-4xl); font-weight: 600; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.gm-freezes { display: flex; gap: var(--ps-space-2); margin: var(--ps-space-4) 0 var(--ps-space-2); }
+.gm-freeze { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--ps-brand-50); border: 2px solid var(--ps-brand-300); color: var(--ps-brand-700); }
+.gm-freeze.is-empty { background: transparent; border-style: dashed; border-color: var(--ps-border-strong); color: var(--ps-ink-3); }
+
+.gm-words { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ps-space-2); }
+.gm-words li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; border-radius: var(--ps-radius-full); border: 1px solid var(--ps-border); background: var(--ps-surface); font-size: var(--ps-text-sm); }
+.gm-words li.is-learned { background: var(--ps-brand-50); border-color: var(--ps-brand-200); }
+.gm-words .gm-done { font-size: var(--ps-text-xs); }
+
+/* "+10 XP" note inside a money word's explanation */
+.gm-term-note { display: flex; align-items: center; gap: 6px; margin-top: var(--ps-space-2); padding-top: var(--ps-space-2); border-top: 1px dashed var(--ps-border); color: var(--ps-brand-700); font-size: var(--ps-text-xs); font-weight: 600; }
+
+@media (max-width: 760px) {
+  .gm-hero { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+  .gm-hero__level { justify-content: center; }
+  .gm-hero .gm-xp { width: 100%; }
+  .gm-stages { grid-template-columns: repeat(5, minmax(56px, 1fr)); overflow-x: auto; }
+  .gm-earn li { grid-template-columns: 52px minmax(0, 1fr); }
+  .gm-earn li > :last-child { grid-column: 2; justify-self: start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gm-xp__fill, .ps-root a.gm-chip { transition: none; }
+  .gm-stageup[open], .gm-stageup__to { animation: none; }
+}

@@ -3,7 +3,8 @@ import { QuestionOutlined } from "@ant-design/icons";
 
 // A financial term with a small "what's this?" button that opens a plain-language explanation.
 // Click or Enter/Space toggles it; Esc or clicking elsewhere closes it and returns focus to the button.
-export function Term({ children, title, explain }) {
+// `onOpen` runs each time the explanation opens; `footer` renders under the explanation.
+export function Term({ children, title, explain, onOpen, footer }) {
   const [open, setOpen] = useState(false);
   const [shift, setShift] = useState(0);
   const id = useId();
@@ -53,7 +54,8 @@ export function Term({ children, title, explain }) {
         aria-controls={id}
         onClick={() => {
           setShift(0);
-          setOpen((o) => !o);
+          if (!open) onOpen?.();
+          setOpen(!open);
         }}
       >
         <QuestionOutlined aria-hidden />
@@ -62,6 +64,7 @@ export function Term({ children, title, explain }) {
         <span ref={popRef} id={id} role="note" className="ps-term__pop" style={{ "--shift": `${shift}px` }}>
           <strong className="ps-term__title">{name}</strong>
           {explain}
+          {footer}
         </span>
       )}
     </span>

@@ -1,4 +1,8 @@
+import { useState } from "react";
+import { CheckOutlined } from "@ant-design/icons";
 import { Term } from "../design";
+import { useGame } from "../game/store";
+import { XP } from "../game/rules";
 
 // Plain-language explanations for the money words used on the dashboard.
 export const GLOSSARY = {
@@ -17,10 +21,22 @@ export const GLOSSARY = {
 };
 
 // <Explain k="netWorth">Net worth</Explain> renders the label with its "what's this?" button.
+// Inside the dashboard, opening a word for the first time counts it as learned and earns XP.
 export function Explain({ k, children }) {
   const g = GLOSSARY[k];
+  const game = useGame();
+  const [justLearned, setJustLearned] = useState(false);
+  const known = game?.ready && game.progress.terms[k];
+  const onOpen = () => {
+    if (!game?.ready || known) return;
+    setJustLearned(true);
+    game.learnTerm(k, g.title);
+  };
+  let footer = null;
+  if (justLearned) footer = <span className="gm-term-note">New word learned · +{XP.termLearned} XP</span>;
+  else if (known) footer = <span className="gm-term-note"><CheckOutlined aria-hidden /> You've learned this one</span>;
   return (
-    <Term title={g.title} explain={g.explain}>
+    <Term title={g.title} explain={g.explain} onOpen={onOpen} footer={footer}>
       {children ?? g.title}
     </Term>
   );

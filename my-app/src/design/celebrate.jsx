@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { prefersReducedMotion } from "./hooks";
 
 const LEAF = "M0 0c0-5 3.3-8 8.2-8 0 5-3.3 8-8.2 8Z";
-const COLORS = ["var(--ps-brand-300)", "var(--ps-brand-400)", "var(--ps-brand-500)", "var(--ps-brand-600)", "#e2c068"];
+const COLORS = ["var(--ps-brand-300)", "var(--ps-brand-400)", "var(--ps-brand-500)", "var(--ps-brand-600)", "var(--ps-brand-200)"];
 
 /** A small sprout that grows: stem draws up, then two leaves unfurl. */
 export function Sprout({ size = 40, className = "" }) {

@@ -1,6 +1,6 @@
-import { lazy, Suspense, useCallback, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AppstoreOutlined, CreditCardOutlined, FlagOutlined, LineChartOutlined, QuestionCircleOutlined, RiseOutlined, SwapOutlined, UserOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, CreditCardOutlined, FlagOutlined, LineChartOutlined, QuestionCircleOutlined, RiseOutlined, SwapOutlined, TrophyOutlined, UserOutlined } from "@ant-design/icons";
 import { Button, LogoMark, Sprout } from "../design";
 import { sampleProfile } from "../dashboard/sampleProfile";
 import { computeMetrics } from "../dashboard/finance";
@@ -12,6 +12,10 @@ import { tourSteps } from "../dashboard/tutorial/steps";
 import { EmptyState, PageSkeleton } from "../dashboard/components";
 import "../dashboard/dashboard.css";
 import { SproutChat, SproutLauncher, SproutProvider } from "../sprout";
+import { GameContext, GameFeed, GardenerChip, useGameStore } from "../game";
+import { GLOSSARY } from "../dashboard/glossary";
+
+const TERM_COUNT = Object.keys(GLOSSARY).length;
 
 const Tour = lazy(() => import("../dashboard/tutorial/Tour"));
 
@@ -29,6 +33,8 @@ const PAGES = [
   { path: "invest", label: "Invest", icon: <LineChartOutlined />, Component: lazy(() => import("../dashboard/pages/Invest")) },
   { path: "future", label: "Future", icon: <RiseOutlined />, Component: lazy(() => import("../dashboard/pages/Future")) },
   { path: "goals", label: "Goals", icon: <FlagOutlined />, Component: lazy(() => import("../dashboard/pages/Goals")) },
+  // Not in the phone tab bar (it would be crowded); the level chip in the top bar links here instead.
+  { path: "progress", label: "Progress", icon: <TrophyOutlined />, tab: false, Component: lazy(() => import("../dashboard/pages/Progress")) },
 ];
 
 const BASE = "/app/individual";
@@ -120,6 +126,23 @@ export default function UserDashboard() {
   // in Supabase to hold a has_completed_tutorial flag, and the schema is left unchanged.
   const tutorial = useTutorial(user);
   const steps = useMemo(() => tourSteps(profile.name.split(" ")[0]), [profile.name]);
+
+  // XP, badges and streak, saved per account (per device for visitors). Waits until sign-in is known.
+  const game = useGameStore(user.ready ? user.uid ?? "guest" : null, { termCount: TERM_COUNT });
+  const { checkIn, dispatch } = game;
+  // Opening the dashboard is the weekly check-in; repeat visits in the same week change nothing.
+  useEffect(() => {
+    if (game.ready) checkIn();
+  }, [game.ready, checkIn]);
+  // Only the user's own survey answers count, not exploring the sample.
+  useEffect(() => {
+    if (game.ready && mode === "own") dispatch({ type: "surveyDone" });
+  }, [game.ready, mode, dispatch]);
+  // Finishing the last step earns XP; skipping simply closes the tour.
+  const closeTour = () => {
+    if (tutorial.step >= steps.length - 1) dispatch({ type: "tourDone" });
+    tutorial.close();
+  };
   const tourNavigate = useCallback(
     (path) => {
       navigate(path ? `${BASE}/${path}` : BASE);
@@ -140,92 +163,97 @@ export default function UserDashboard() {
   };
   const initials = profile.name.split(" ").filter(Boolean).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const avatar = <span className="db-avatar" aria-hidden>{initials || <UserOutlined />}</span>;
-  const navLinks = PAGES.map((p) => (
+  const navLink = (p) => (
     <Link key={p.path} to={p.path ? `${BASE}/${p.path}` : BASE} aria-current={p === page ? "page" : undefined}>
       {p.icon}
       <span>{p.label}</span>
     </Link>
-  ));
+  );
   const { Component } = page;
 
   return (
-    <SproutProvider scope="app" getContext={() => ({ profile: showPages ? profile : null, plan })}>
-      <div className="ps-root db" inert={(showPages && tutorial.open) || undefined}>
-        <aside className="db-side">
-          <Link to={BASE} className="db-brand">
-            <LogoMark />
-            Prosperity
-          </Link>
-          <nav className="db-nav" aria-label="Dashboard">{navLinks}</nav>
-          <div className="db-side__foot">
-            {replayButton}
-            {mode === "own" ? (
-              <p className="db-note">🌱 These numbers come from your survey answers.</p>
-            ) : mode === "sample" && user.uid ? (
-              <p className="db-note">
-                🌱 You're exploring sample numbers.{" "}
-                <button type="button" className="db-note__link" onClick={() => setExploringSample(false)}>
-                  Back to my plan
-                </button>
-              </p>
-            ) : (
-              <p className="db-note">🌱 For now you're seeing example numbers so you can play around safely. Your own will appear here once you sign in and finish the survey.</p>
-            )}
-            <div className="db-user">
-              {avatar}
-              <div>
-                <div className="db-user__name">{profile.name || "Welcome!"}</div>
-                <div className="db-user__meta">{!user.uid ? "Exploring the demo" : mode === "sample" ? "Exploring sample numbers" : "Your plan"}</div>
+    <GameContext.Provider value={game}>
+      <SproutProvider scope="app" getContext={() => ({ profile: showPages ? profile : null, plan })}>
+        <div className="ps-root db" inert={(showPages && tutorial.open) || undefined}>
+          <aside className="db-side">
+            <Link to={BASE} className="db-brand">
+              <LogoMark />
+              Prosperity
+            </Link>
+            <nav className="db-nav" aria-label="Dashboard">{PAGES.map(navLink)}</nav>
+            <div className="db-side__foot">
+              <GardenerChip to={`${BASE}/progress`} />
+              {replayButton}
+              {mode === "own" ? (
+                <p className="db-note">🌱 These numbers come from your survey answers.</p>
+              ) : mode === "sample" && user.uid ? (
+                <p className="db-note">
+                  🌱 You're exploring sample numbers.{" "}
+                  <button type="button" className="db-note__link" onClick={() => setExploringSample(false)}>
+                    Back to my plan
+                  </button>
+                </p>
+              ) : (
+                <p className="db-note">🌱 For now you're seeing example numbers so you can play around safely. Your own will appear here once you sign in and finish the survey.</p>
+              )}
+              <div className="db-user">
+                {avatar}
+                <div>
+                  <div className="db-user__name">{profile.name || "Welcome!"}</div>
+                  <div className="db-user__meta">{!user.uid ? "Exploring the demo" : mode === "sample" ? "Exploring sample numbers" : "Your plan"}</div>
+                </div>
               </div>
             </div>
-          </div>
-        </aside>
+          </aside>
 
-        <header className="db-topbar">
-          <Link to={BASE} className="db-brand" style={{ padding: 0 }}>
-            <LogoMark size={26} />
-            Prosperity
-          </Link>
-          <div className="db-topbar__end">
-            <button type="button" className="db-help db-help--icon" onClick={tutorial.replay} aria-label="Help: replay tutorial" title="Replay tutorial">
-              <QuestionCircleOutlined aria-hidden />
-              <span>Help</span>
-            </button>
-            {avatar}
-          </div>
-        </header>
+          <header className="db-topbar">
+            <Link to={BASE} className="db-brand" style={{ padding: 0 }}>
+              <LogoMark size={26} />
+              Prosperity
+            </Link>
+            <div className="db-topbar__end">
+              <GardenerChip to={`${BASE}/progress`} compact />
+              <button type="button" className="db-help db-help--icon" onClick={tutorial.replay} aria-label="Help: replay tutorial" title="Replay tutorial">
+                <QuestionCircleOutlined aria-hidden />
+                <span>Help</span>
+              </button>
+              {avatar}
+            </div>
+          </header>
 
-        <main className="db-main">
-          <div className="db-content">
-            {mode === "loading" && <LoadingState />}
-            {mode === "empty" && <NewUserState onExplore={() => setExploringSample(true)} />}
-            {mode === "error" && <LoadErrorState onRetry={finances.retry} onExplore={() => setExploringSample(true)} />}
-            {showPages && (
-              <Suspense fallback={<PageSkeleton />}>
-                <div className="db-page" key={`${page.path}-${mode}`}>
-                  <Component profile={profile} metrics={metrics} plan={plan} setPlan={setPlan} go={go} />
-                </div>
-              </Suspense>
-            )}
-          </div>
-        </main>
+          <main className="db-main">
+            <div className="db-content">
+              {mode === "loading" && <LoadingState />}
+              {mode === "empty" && <NewUserState onExplore={() => setExploringSample(true)} />}
+              {mode === "error" && <LoadErrorState onRetry={finances.retry} onExplore={() => setExploringSample(true)} />}
+              {showPages && (
+                <Suspense fallback={<PageSkeleton />}>
+                  <div className="db-page" key={`${page.path}-${mode}`}>
+                    <Component profile={profile} metrics={metrics} plan={plan} setPlan={setPlan} go={go} onReplayTour={tutorial.replay} />
+                  </div>
+                </Suspense>
+              )}
+            </div>
+          </main>
 
-        <nav className="db-tabbar" aria-label="Dashboard">{navLinks}</nav>
-        <SproutLauncher />
-        <SproutChat starters={SPROUT_STARTERS} />
-      </div>
-      {showPages && tutorial.open && (
-        <Suspense fallback={null}>
-          <Tour
-            steps={steps}
-            index={tutorial.step}
-            currentPage={page.path}
-            onNavigate={tourNavigate}
-            onIndexChange={tutorial.setStep}
-            onClose={tutorial.close}
-          />
-        </Suspense>
-      )}
-    </SproutProvider>
+          <nav className="db-tabbar" aria-label="Dashboard">{PAGES.filter((p) => p.tab !== false).map(navLink)}</nav>
+          <SproutLauncher />
+          <SproutChat starters={SPROUT_STARTERS} />
+        </div>
+        <GameFeed />
+        {showPages && tutorial.open && (
+          <Suspense fallback={null}>
+            <Tour
+              steps={steps}
+              index={tutorial.step}
+              currentPage={page.path}
+              onNavigate={tourNavigate}
+              onIndexChange={tutorial.setStep}
+              onClose={closeTour}
+            />
+          </Suspense>
+        )}
+      </SproutProvider>
+    </GameContext.Provider>
   );
 }
