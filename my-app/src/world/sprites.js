@@ -1,4 +1,5 @@
-// Sprout's town sprite, as text-grid pixel art (see PixelArt). 6b adds the four walking directions.
+// Sprout's town sprite, as text-grid pixel art (see PixelArt): four directions, each standing plus two
+// walking steps. Facing right is facing left, mirrored. All original art.
 
 export const SPROUT_PALETTE = {
   k: "#1f3326", // outline
@@ -12,7 +13,8 @@ export const SPROUT_PALETTE = {
   c: "#f4a38c", // cheeks
 };
 
-export const SPROUT_FRONT = [
+// Head and body, shared by every direction. Rows 8 to 10 (the face) and 14 to 15 (the feet) change.
+const BODY = [
   "....kk....kk....",
   "...kLlk..klLk...",
   "...kLLLkkLLLk...",
@@ -21,12 +23,32 @@ export const SPROUT_FRONT = [
   ".....kkkkkk.....",
   "....khbbbbbk....",
   "...khbbbbbbbk...",
-  "...kbbebbbebbk..",
-  "...kbcbbbbbcbk..",
-  "...kbbbkkkbbbk..",
+  null,
+  null,
+  null,
   "....kbbbbbbbk...",
   "....kBBBBBBBk...",
   ".....kkkkkkk....",
-  ".....kBk.kBk....",
-  ".....kkk.kkk....",
+  null,
+  null,
 ];
+
+const FACES = {
+  down: ["...kbbebbbebbk..", "...kbcbbbbbcbk..", "...kbbbkkkbbbk.."],
+  up: ["...kbbbbbbbbbk..", "...kbbbbbbbbbk..", "...kbbbbbbbbbk.."],
+  left: ["...kebbbbbbbbk..", "...kcbbbbbbbbk..", "...kbkbbbbbbbk.."],
+};
+
+const FEET = [
+  [".....kBk.kBk....", ".....kkk.kkk...."], // standing
+  ["....kBk...kBk...", "....kkk...kkk..."], // step: feet apart
+  ["......kBkkBk....", "......kkkkkk...."], // step: feet together
+];
+
+const build = (face, feet) => BODY.map((row, i) => row ?? (i >= 8 && i <= 10 ? face[i - 8] : feet[i - 14]));
+
+/** SPROUT_FRAMES[direction][frame]: frame 0 is standing, 1 and 2 are the walking steps. */
+export const SPROUT_FRAMES = Object.fromEntries(Object.entries(FACES).map(([dir, face]) => [dir, FEET.map((feet) => build(face, feet))]));
+
+// The standing, front-facing Sprout (used on the dashboard switch).
+export const SPROUT_FRONT = SPROUT_FRAMES.down[0];

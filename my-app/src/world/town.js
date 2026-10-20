@@ -46,7 +46,7 @@ export const BUILDINGS = [
 ];
 
 // The fenced plot by Home. Its contents come from the player's real numbers (Phase 8 grows it on the map).
-export const PLOT = { id: "plot", name: "Your garden plot", x: 7, y: 2, w: 4, h: 4 };
+export const PLOT = { id: "plot", name: "Your garden plot", x: 7, y: 2, w: 4, h: 4, gate: { x: 8, y: 5 } };
 
 // Where Sprout stands when Garden mode opens: on the path outside Home.
 export const SPAWN = { x: 3, y: 6 };

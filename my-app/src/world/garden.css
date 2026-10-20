@@ -39,19 +39,63 @@
 .gw-bld:hover .gw-tag, .gw-bld:focus-visible .gw-tag, .gw-plot:hover .gw-tag, .gw-plot:focus-visible .gw-tag { visibility: visible; }
 .gw-plot .gw-tag { bottom: auto; top: -10px; }
 
-.gw-sprout { position: absolute; width: 16px; height: 16px; pointer-events: none; }
+/* The focusable map. Keys only walk Sprout while focus is in here. */
+.gw__map { position: relative; display: grid; place-items: center; width: 100%; height: 100%; }
+.px-root .gw__map:focus-visible { outline: 3px solid #ffffff; outline-offset: -3px; box-shadow: inset 0 0 0 6px var(--ps-brand-700); }
+.gw-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  z-index: 3;
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  border: 2px solid var(--px-frame);
+  border-radius: 8px;
+  background: var(--px-paper);
+  color: var(--px-ink);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Sprout slides one tile per step; with reduced motion it just appears on the next tile. */
+.gw-sprout { position: absolute; left: 0; top: 0; width: 16px; height: 16px; pointer-events: none; transition: transform 160ms linear; }
+.gw-sprout.is-still { transition: none; }
 .gw-sprout svg { width: 16px; height: 16px; }
+.gw-sprout__flip { transform: scaleX(-1); }
+
+/* Where a tap is taking Sprout. */
+.gw-marker { position: absolute; z-index: 1; width: 16px; height: 16px; box-shadow: inset 0 0 0 1px #ffffff, inset 0 0 0 2px rgba(31, 51, 38, 0.45); pointer-events: none; animation: gw-blink 700ms steps(2, jump-none) infinite; }
+@keyframes gw-blink { 50% { opacity: 0.35; } }
 
 /* Touch screen */
 .gw-panel { display: flex; flex-direction: column; gap: 5px; min-height: 0; height: 100%; overflow-y: auto; }
 /* A compact text box so the whole town guide fits on the touch screen. */
 .gw-panel .tb { min-height: 0; padding: 8px 12px 9px; }
-.gw-panel .tb--pixel .tb__text { font-size: clamp(0.9rem, 1.9vw, 1rem); line-height: 1.4; }
+.gw-panel .tb--pixel .tb__text { font-size: clamp(0.88rem, 1.8vw, 0.95rem); line-height: 1.35; }
 .gw-where { display: flex; align-items: center; gap: 6px; font-family: var(--ps-font); font-size: 0.82rem; color: var(--px-ink-2); }
 .gw-where .anticon { color: var(--px-frame); }
+.gw-controls { display: flex; align-items: center; gap: 8px; }
+.gw-controls__text { flex: 1; font-family: var(--ps-font); font-size: 0.74rem; line-height: 1.35; color: var(--px-ink-2); }
+.px-root .gw-controls__toggle { flex-shrink: 0; padding: 3px 10px; border: 2px solid var(--px-frame); border-radius: 999px; background: var(--px-paper); color: var(--px-ink); font-size: 0.78rem; cursor: pointer; }
+.px-root .gw-controls__toggle[aria-pressed="true"] { background: var(--px-paper-2); }
+
+/* D-pad: big touch targets; holding an arrow keeps walking. */
+.dpad { display: flex; align-items: center; justify-content: center; gap: 32px; padding: 2px 0 4px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.dpad__cross { position: relative; display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); grid-template-areas: ". up ." "left hub right" ". down ."; }
+.px-root .dpad__btn { display: grid; place-items: center; border: 2px solid #0e1611; background: #3d5a47; color: #f2f7ef; font-size: 16px; cursor: pointer; box-shadow: 0 3px 0 #0e1611; touch-action: none; }
+.px-root .dpad__btn:active { transform: translateY(3px); box-shadow: none; }
+.dpad__btn--up { grid-area: up; border-radius: 8px 8px 0 0; }
+.dpad__btn--down { grid-area: down; border-radius: 0 0 8px 8px; }
+.dpad__btn--left { grid-area: left; border-radius: 8px 0 0 8px; }
+.dpad__btn--right { grid-area: right; border-radius: 0 8px 8px 0; }
+.dpad__hub { grid-area: hub; background: #3d5a47; border-top: 2px solid #0e1611; border-bottom: 2px solid #0e1611; }
+.px-root .dpad__a { width: 58px; height: 58px; border: 2px solid #0e1611; border-radius: 50%; background: var(--ps-brand-600); color: #ffffff; font-size: 1.3rem; cursor: pointer; box-shadow: 0 4px 0 #0e1611; touch-action: manipulation; }
+.px-root .dpad__a:active { transform: translateY(4px); box-shadow: none; }
+
 .gw-panel__title { font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--px-ink-2); }
 .gw-goto { gap: 5px; }
-.gw-goto .lm__item { min-height: 0; padding-top: 5px; padding-bottom: 5px; }
+.gw-goto .lm__item { min-height: 0; padding-top: 4px; padding-bottom: 4px; }
 .gw-goto .lm__label { font-size: 0.92rem; line-height: 1.2; }
 .gw-goto .lm__sub { text-transform: none; letter-spacing: 0; font-family: var(--ps-font); font-size: 0.72rem; }
 
@@ -62,4 +106,6 @@
 @media (prefers-reduced-motion: reduce) {
   .gw-bld__art { transition: none; }
   .gw-bld:hover .gw-bld__art, .gw-bld:focus-visible .gw-bld__art { transform: none; }
+  .gw-sprout { transition: none; }
+  .gw-marker { animation: none; }
 }
