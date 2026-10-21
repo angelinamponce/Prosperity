@@ -46,7 +46,8 @@ export const BUILDINGS = [
 ];
 
 // The fenced plot by Home. Its contents come from the player's real numbers (Phase 8 grows it on the map).
-export const PLOT = { id: "plot", name: "Your garden plot", x: 7, y: 2, w: 4, h: 4, gate: { x: 8, y: 5 } };
+// Walking up through its gate enters the Garden scene.
+export const PLOT = { id: "plot", name: "Your garden plot", x: 7, y: 2, w: 4, h: 4, gate: { x: 8, y: 5 }, door: { x: 8, y: 5 } };
 
 // Where Sprout stands when Garden mode opens: on the path outside Home.
 export const SPAWN = { x: 3, y: 6 };
@@ -63,3 +64,23 @@ export function isWalkable(x, y) {
 export function placeAt(x, y) {
   return [...BUILDINGS, PLOT].find((b) => x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) ?? null;
 }
+
+const DIRS4 = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+/** Where Sprout is in town, in plain words, for the guide. */
+export function describeTownSpot(pos) {
+  const door = BUILDINGS.find((b) => b.door.x === pos.x && b.door.y === pos.y);
+  if (door) return `at the door of the ${door.name}`.replace("the Home", "Home");
+  if (pos.x === PLOT.gate.x && pos.y === PLOT.gate.y) return "at the gate of your garden";
+  const near = BUILDINGS.map((b) => ({ b, d: Math.abs(b.door.x - pos.x) + Math.abs(b.door.y - pos.y) })).sort((a, b) => a.d - b.d)[0];
+  if (near.d <= 2) return `near the ${near.b.name}`.replace("the Home", "Home");
+  const byPlot = pos.x >= PLOT.x - 1 && pos.x <= PLOT.x + PLOT.w && pos.y >= PLOT.y - 1 && pos.y <= PLOT.y + PLOT.h;
+  if (byPlot) return "by your garden plot";
+  if (tileAt(pos.x, pos.y) === ",") return "in the tall grass";
+  if (DIRS4.some(([dx, dy]) => tileAt(pos.x + dx, pos.y + dy) === "~")) return "by the pond";
+  if (tileAt(pos.x, pos.y) === "=") return "on the path";
+  return "on the grass";
+}
+
+/** The town as a world the movement engine can walk around. */
+export const TOWN = { id: "town", cols: COLS, rows: ROWS, tileAt, isWalkable, placeAt, places: [...BUILDINGS, PLOT], describe: describeTownSpot };

@@ -3,12 +3,44 @@
 // Every element carries its exact figure and how it was worked out, for "Show the numbers".
 // Shared by the dashboard preview now and Garden mode later.
 
-import { HIGH_INTEREST_APR } from "../dashboard/finance";
+import { HIGH_INTEREST_APR, addMonths, simulatePayoff } from "../dashboard/finance";
 import { debtFreeSummary } from "../dashboard/summaries";
 import { money, pct } from "../design/format";
 
 export const DEBT_PER_WEED = 2500;
 export const MAX_WEEDS_PER_DEBT = 6;
+// How far ahead the garden looks when it outlines the patches a plan would clear.
+export const LOOKAHEAD_MONTHS = 12;
+const NEVER = 600; // the payoff simulation's cap: past this, minimums never catch up
+
+const patchCount = (balance) => Math.min(MAX_WEEDS_PER_DEBT, Math.ceil(balance / DEBT_PER_WEED));
+
+/**
+ * When a payment plan clears each debt, and each of its weed patches. A debt's patches each stand for an
+ * equal share of today's balance; a patch counts as cleared in the first month the balance drops below
+ * its share, so the patches planted last go first and the first one goes when the debt is paid off.
+ * Plain projections: they assume balances, rates and minimums stay as they are today.
+ * Returns { debts: [{ name, payoffMonth, payoffDate, patchMonths }], months, date } with months null when
+ * the plan never clears the debt.
+ */
+export function payoffLookahead(allDebts, { extra = 0, strategy = "avalanche", now = new Date() } = {}) {
+  const debts = allDebts.filter((d) => d.balance > 0);
+  if (!debts.length) return { debts: [], months: 0, date: null };
+  const run = simulatePayoff(debts, { extra, strategy });
+  const firstBelow = (hist, limit) => {
+    const m = hist.findIndex((b) => b <= limit + 0.01);
+    return m > 0 && m < NEVER ? m : null;
+  };
+  const out = debts.map((d, i) => {
+    const n = patchCount(d.balance);
+    const hist = run.histories[i];
+    const patchMonths = Array.from({ length: n }, (_, k) => firstBelow(hist, (d.balance * k) / n));
+    const payoffMonth = patchMonths[0];
+    return { name: d.name, payoffMonth, payoffDate: payoffMonth != null ? addMonths(now, payoffMonth) : null, patchMonths };
+  });
+  const months = run.months < NEVER ? run.months : null;
+  return { debts: out, months, date: months != null ? addMonths(now, months) : null };
+}
 
 // Soil richness from the savings rate. Even the lowest tier is "resting", never dead.
 const SOIL = [
@@ -65,10 +97,17 @@ export function deriveGarden({ profile, m, plan, healthScore, learned = 0, wordT
 
   // Weeds: one patch per $2,500 owed on each debt; high-interest debts grow thorny brambles.
   const debts = profile.debts.filter((d) => d.balance > 0);
-  const weeds = debts.map((d) => ({
+  // When each debt is paid off on the saved plan (null if minimums never catch up).
+  const ahead = payoffLookahead(profile.debts, { extra: plan.extraDebt, strategy: plan.strategy, now });
+  const weeds = debts.map((d, i) => ({
     name: d.name,
-    patches: Math.min(MAX_WEEDS_PER_DEBT, Math.ceil(d.balance / DEBT_PER_WEED)),
+    patches: patchCount(d.balance),
     thorny: d.apr >= HIGH_INTEREST_APR,
+    balance: d.balance,
+    apr: d.apr,
+    minPayment: d.minPayment,
+    payoffMonth: ahead.debts[i].payoffMonth,
+    payoffDate: ahead.debts[i].payoffDate,
   }));
   const patches = weeds.reduce((a, w) => a + w.patches, 0);
   const owed = debts.reduce((a, d) => a + d.balance, 0);

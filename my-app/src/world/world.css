@@ -78,7 +78,9 @@ body:has(.px-root) { margin: 0; }
   .hh { padding: 0; place-items: stretch; }
   .hh__device { --w: 100vw; width: 100%; min-height: 100dvh; padding: 0; border-radius: 0; background: var(--px-shell); box-shadow: none; display: flex; flex-direction: column; }
   .hh__screen { border-radius: 0; border-width: 0; }
-  .hh__screen--bottom { flex: 1; aspect-ratio: auto; min-height: 340px; padding: 10px; }
+  /* Exactly the phone's height: the bottom screen scrolls inside instead of the page growing. */
+  .hh__device { height: 100dvh; }
+  .hh__screen--bottom { flex: 1; aspect-ratio: auto; min-height: 0; padding: 10px; overflow-y: auto; }
   .hh__hinge { min-height: 44px; padding: 4px 10px; }
 }
 

@@ -84,7 +84,7 @@ export function letterFor(score) {
  * rollover: when a debt is paid off, its minimum payment goes to the next debt.
  */
 export function simulatePayoff(debts, { extra = 0, strategy = "avalanche", rollover = true } = {}) {
-  const ds = debts.map((d) => ({ ...d, bal: d.balance, paidMonth: null }));
+  const ds = debts.map((d) => ({ ...d, bal: d.balance, paidMonth: null, history: [d.balance] }));
   const order = [...ds].sort(strategy === "avalanche" ? (a, b) => b.apr - a.apr : (a, b) => a.bal - b.bal);
   const fixedBudget = sum(ds.map((d) => d.minPayment)) + extra;
   const total = () => sum(ds.map((d) => d.bal));
@@ -119,6 +119,7 @@ export function simulatePayoff(debts, { extra = 0, strategy = "avalanche", rollo
         d.bal = 0;
         d.paidMonth = month;
       }
+      d.history.push(d.bal);
     }
     balances.push(total());
   }
@@ -128,6 +129,8 @@ export function simulatePayoff(debts, { extra = 0, strategy = "avalanche", rollo
     interest,
     balances,
     payoffOrder: [...ds].sort((a, b) => a.paidMonth - b.paidMonth).map((d) => ({ name: d.name, apr: d.apr, month: d.paidMonth })),
+    // Each debt's balance month by month (index 0 is today), in the order the debts were given.
+    histories: ds.map((d) => d.history),
   };
 }
 

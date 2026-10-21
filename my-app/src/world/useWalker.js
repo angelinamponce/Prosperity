@@ -8,9 +8,10 @@ export const REDUCED_STEP_MS = 70;
 /**
  * Walks Sprout around town. `walk(dir)` / `release(dir)` for held keys and the D-pad; `goTo(tile, then)`
  * for tap-to-move (follows the shortest path, then calls `then`); `stop()` clears everything.
+ * `world` is the map being walked (the town or the garden).
  * Walking up through a door calls `onEnter(building)`. Stops whenever the tab is hidden.
  */
-export function useWalker({ start, reduced, onEnter, onArrive }) {
+export function useWalker({ world, start, reduced, onEnter, onArrive }) {
   const [pos, setPos] = useState(start);
   const [facing, setFacing] = useState("down");
   const [frame, setFrame] = useState(0); // 0 standing, 1 and 2 the walking steps
@@ -24,7 +25,7 @@ export function useWalker({ start, reduced, onEnter, onArrive }) {
   const timer = useRef(null);
   const steps = useRef(0);
   const opts = useRef({});
-  opts.current = { reduced, onEnter, onArrive };
+  opts.current = { world, reduced, onEnter, onArrive };
 
   const halt = useRef(() => {});
   const advance = useRef(() => {});
@@ -41,7 +42,7 @@ export function useWalker({ start, reduced, onEnter, onArrive }) {
 
   const attempt = (dir) => {
     setFacing(dir);
-    const r = step(posRef.current, dir);
+    const r = step(opts.current.world, posRef.current, dir);
     if (!r.moved) {
       moving.current = false;
       if (r.enter) {
@@ -105,7 +106,7 @@ export function useWalker({ start, reduced, onEnter, onArrive }) {
   /** Walks to `tile` (or as near as possible). Returns false if there's no way there. */
   const goTo = useCallback((tile, onDone) => {
     held.current = null;
-    const path = pathToward(posRef.current, tile);
+    const path = pathToward(opts.current.world, posRef.current, tile);
     if (!path) return false;
     route.current = path;
     then.current = onDone ?? null;

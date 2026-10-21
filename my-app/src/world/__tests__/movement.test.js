@@ -1,5 +1,7 @@
-import { buildingEntered, describeSpot, directionTo, facingPlace, findPath, pathToward, step } from "../movement";
-import { BUILDINGS, SPAWN, isWalkable } from "../town";
+import { buildingEntered, directionTo, facingPlace, findPath, pathToward, step } from "../movement";
+import { BUILDINGS, PLOT, SPAWN, TOWN, isWalkable } from "../town";
+
+const describeSpot = TOWN.describe;
 import { SPROUT_FRAMES, SPROUT_PALETTE } from "../sprites";
 
 const home = BUILDINGS.find((b) => b.id === "home");
@@ -7,34 +9,39 @@ const library = BUILDINGS.find((b) => b.id === "library");
 
 describe("step and collisions", () => {
   test("walks onto open ground", () => {
-    expect(step(SPAWN, "down")).toEqual({ pos: { x: 3, y: 7 }, moved: true, enter: null });
+    expect(step(TOWN, SPAWN, "down")).toEqual({ pos: { x: 3, y: 7 }, moved: true, enter: null });
   });
 
   test("can't walk through trees, water, fences or walls", () => {
-    expect(step({ x: 1, y: 1 }, "up").moved).toBe(false); // tree
-    expect(step({ x: 3, y: 8 }, "left").moved).toBe(false); // pond
-    expect(step({ x: 8, y: 6 }, "up").moved).toBe(true); // the plot's gate is open...
-    expect(step({ x: 8, y: 5 }, "up").moved).toBe(false); // ...but the soil isn't walkable
-    expect(step({ x: 6, y: 3 }, "right").moved).toBe(false); // fence
-    expect(step({ x: 2, y: 5 }, "up").moved).toBe(false); // Home's wall, away from the door
+    expect(step(TOWN, { x: 1, y: 1 }, "up").moved).toBe(false); // tree
+    expect(step(TOWN, { x: 3, y: 8 }, "left").moved).toBe(false); // pond
+    expect(step(TOWN, { x: 8, y: 6 }, "up").moved).toBe(true); // the plot's gate is open...
+    expect(step(TOWN, { x: 8, y: 5 }, "up").moved).toBe(false); // ...but the soil isn't walkable
+    expect(step(TOWN, { x: 6, y: 3 }, "right").moved).toBe(false); // fence
+    expect(step(TOWN, { x: 2, y: 5 }, "up").moved).toBe(false); // Home's wall, away from the door
+  });
+
+  test("walking up through the plot's gate enters the garden", () => {
+    expect(step(TOWN, PLOT.gate, "up")).toMatchObject({ moved: false, enter: PLOT });
+    expect(describeSpot(PLOT.gate)).toBe("at the gate of your garden");
   });
 
   test("walking up from a door goes inside; bumping a wall doesn't", () => {
-    expect(step(home.door, "up")).toMatchObject({ moved: false, enter: home });
-    expect(buildingEntered({ x: 2, y: 5 }, "up")).toBeNull();
-    expect(buildingEntered(home.door, "left")).toBeNull();
+    expect(step(TOWN, home.door, "up")).toMatchObject({ moved: false, enter: home });
+    expect(buildingEntered(TOWN, { x: 2, y: 5 }, "up")).toBeNull();
+    expect(buildingEntered(TOWN, home.door, "left")).toBeNull();
   });
 
   test("the interact button finds what Sprout is facing", () => {
-    expect(facingPlace(home.door, "up").id).toBe("home");
-    expect(facingPlace({ x: 8, y: 6 }, "up").id).toBe("plot"); // the gate is part of the plot
-    expect(facingPlace({ x: 12, y: 9 }, "right")).toBeNull(); // open grass
+    expect(facingPlace(TOWN, home.door, "up").id).toBe("home");
+    expect(facingPlace(TOWN, { x: 8, y: 6 }, "up").id).toBe("plot"); // the gate is part of the plot
+    expect(facingPlace(TOWN, { x: 12, y: 9 }, "right")).toBeNull(); // open grass
   });
 });
 
 describe("path finding for tap-to-move", () => {
   test("finds the shortest route, one tile at a time, around obstacles", () => {
-    const path = findPath(SPAWN, library.door);
+    const path = findPath(TOWN, SPAWN, library.door);
     expect(path[path.length - 1]).toEqual(library.door);
     expect(path.every(({ x, y }) => isWalkable(x, y))).toBe(true);
     let prev = SPAWN;
@@ -47,20 +54,20 @@ describe("path finding for tap-to-move", () => {
   });
 
   test("tapping a building walks to its door", () => {
-    const path = pathToward(SPAWN, { x: 17, y: 3 });
+    const path = pathToward(TOWN, SPAWN, { x: 17, y: 3 });
     expect(path[path.length - 1]).toEqual(library.door);
   });
 
   test("tapping a tree or the pond walks to the closest tile beside it", () => {
-    const path = pathToward(SPAWN, { x: 2, y: 7 }); // pond
+    const path = pathToward(TOWN, SPAWN, { x: 2, y: 7 }); // pond
     const end = path[path.length - 1];
     expect(isWalkable(end.x, end.y)).toBe(true);
     expect(Math.abs(end.x - 2) + Math.abs(end.y - 7)).toBe(1);
   });
 
   test("nowhere to go returns null, and standing still is an empty path", () => {
-    expect(findPath(SPAWN, { x: 0, y: 0 })).toBeNull();
-    expect(findPath(SPAWN, SPAWN)).toEqual([]);
+    expect(findPath(TOWN, SPAWN, { x: 0, y: 0 })).toBeNull();
+    expect(findPath(TOWN, SPAWN, SPAWN)).toEqual([]);
   });
 
   test("directions between neighbors", () => {

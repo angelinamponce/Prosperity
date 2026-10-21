@@ -39,6 +39,9 @@
 }
 .gw-bld:hover .gw-tag, .gw-bld:focus-visible .gw-tag, .gw-plot:hover .gw-tag, .gw-plot:focus-visible .gw-tag { visibility: visible; }
 .gw-plot .gw-tag { bottom: auto; top: -10px; }
+/* The garden miniature sits exactly on the plot's 2 x 2 soil tiles. */
+.gw-mini-wrap { position: absolute; width: 32px; height: 32px; pointer-events: none; }
+.gw-mini { display: block; image-rendering: pixelated; }
 
 /* The focusable map. Keys only walk Sprout while focus is in here. */
 .gw__map { position: relative; width: 100%; height: 100%; }
@@ -69,8 +72,10 @@
 .gw-marker { position: absolute; z-index: 1; width: 16px; height: 16px; box-shadow: inset 0 0 0 1px #ffffff, inset 0 0 0 2px rgba(31, 51, 38, 0.45); pointer-events: none; animation: gw-blink 700ms steps(2, jump-none) infinite; }
 @keyframes gw-blink { 50% { opacity: 0.35; } }
 
+.gw-loading { min-height: 100dvh; display: grid; place-items: center; background: var(--px-shell); color: #f2f7ef; font-size: 1.1rem; }
+
 /* Touch screen */
-.gw-panel { display: flex; flex-direction: column; gap: 5px; min-height: 0; height: 100%; overflow-y: auto; }
+.gw-panel { flex: 1; display: flex; flex-direction: column; gap: 5px; min-height: 0; height: 100%; overflow-y: auto; }
 /* A compact text box so the whole town guide fits on the touch screen. */
 .gw-panel .tb { min-height: 0; padding: 8px 12px 9px; }
 .gw-panel .tb--pixel .tb__text { font-size: clamp(0.88rem, 1.8vw, 0.95rem); line-height: 1.35; }
@@ -104,7 +109,67 @@
 .px-root .hh-btn--light { background: var(--px-paper); color: var(--px-ink); border-color: #0e1611; font-weight: 600; }
 .px-root .hh-btn--light:hover { background: #ffffff; }
 
+/* ---------- The Garden scene ---------- */
+.gs-tile, .gs-hit { position: absolute; display: block; padding: 0; border: 0; background: none; line-height: 0; }
+.gs-tile svg { width: 16px; height: 16px; image-rendering: pixelated; }
+.gs-hit, .gs-tile[aria-hidden] { cursor: pointer; }
+.gs-group .gs-tile { pointer-events: none; }
+.gs-tall { display: flex; align-items: flex-end; }
+.px-root .gs-hit:focus-visible { outline: 2px solid #ffffff; outline-offset: 0; box-shadow: 0 0 0 3px var(--ps-brand-700); }
+.gs-hit:hover { filter: brightness(1.06); }
+/* A patch the plan would clear within the year: still there, faded, outlined in dashes, with a flag.
+   The outline and flag carry the meaning, not color alone. */
+.gs-ghost > svg { opacity: 0.7; }
+.gs-ghost::after { content: ""; position: absolute; inset: 1px; border: 1px dashed #fbfbf5; pointer-events: none; }
+.gs-flag { position: absolute; inset: 0; }
+.gs-flag svg { opacity: 1; }
+
+/* Visitors drift around the bird bath in small pixel steps; butterflies flap two frames. Both are left
+   off entirely with reduced motion (the classes aren't added) and pause with the page when it's hidden. */
+/* Every leg moves a multiple of 4 art pixels in 4 hops, so visitors always land on whole pixels. */
+.gs-drift { animation: gs-drift 7s steps(4) infinite; }
+.gs-drift--bee { animation-name: gs-drift-bee; animation-duration: 5.4s; }
+@keyframes gs-drift {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(12px, -4px); }
+  50% { transform: translate(28px, 4px); }
+  75% { transform: translate(12px, 8px); }
+}
+@keyframes gs-drift-bee {
+  0%, 100% { transform: translate(0, 0); }
+  33.333% { transform: translate(-12px, 4px); }
+  66.667% { transform: translate(-24px, 0); }
+}
+.gs-flap { position: relative; display: block; width: 16px; height: 16px; }
+.gs-flap svg { position: absolute; inset: 0; }
+.gs-flap svg:first-child { animation: gs-flap-open 0.5s step-end infinite; }
+.gs-flap svg:last-child { animation: gs-flap-up 0.5s step-end infinite; }
+@keyframes gs-flap-open { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
+@keyframes gs-flap-up { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 1; } }
+
+.gs-clock { flex-shrink: 0; padding: 5px 10px 6px; border: 2px solid var(--px-frame); border-radius: 8px; background: var(--px-paper); }
+.gs-clock__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 10px; }
+.gs-clock__big { margin: 0; font-family: var(--px-font); font-size: 0.9rem; color: var(--px-ink); }
+.gs-clock__track { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: var(--px-ink-2); }
+.gs-clock__line { flex: 1; height: 0; border-top: 2px dashed var(--px-frame); }
+.gs-clock__note, .gs-sample { margin: 3px 0 0; font-family: var(--ps-font); font-size: 0.74rem; line-height: 1.35; color: var(--px-ink-2); }
+.gs-sample { margin: 0; }
+
+/* The what-if slider lives inside the Harvest Festival card. */
+.gs-whatif { margin-top: 6px; padding-top: 6px; border-top: 2px dotted var(--px-frame); }
+.gs-whatif .ps-slider { gap: 2px; }
+.gs-whatif .ps-label { font-family: var(--px-font); font-size: 0.86rem; color: var(--px-ink); }
+.gs-whatif__tag { display: inline-block; margin: 4px 0 0; padding: 0 8px; border: 2px dashed var(--px-frame); border-radius: 999px; font-size: 0.72rem; color: var(--px-ink); }
+.gs-whatif__result { margin: 4px 0 0; font-family: var(--ps-font); font-size: 0.8rem; line-height: 1.4; color: var(--px-ink); }
+.gs-whatif__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.gs-whatif__status { margin: 4px 0 0; font-family: var(--ps-font); font-size: 0.78rem; color: var(--ps-brand-700); }
+.gs-whatif__status:empty { display: none; }
+.px-root .gs-btn { min-height: 36px; padding: 4px 12px; border: 2px solid var(--px-frame); border-radius: 8px; background: var(--px-paper); color: var(--px-ink); font-size: 0.84rem; cursor: pointer; box-shadow: 0 2px 0 var(--px-frame); }
+.px-root .gs-btn--primary { background: var(--ps-brand-600); border-color: #0e1611; color: #ffffff; }
+.px-root .gs-btn:active { transform: translateY(2px); box-shadow: none; }
+
 @media (prefers-reduced-motion: reduce) {
+  .gs-drift, .gs-flap svg { animation: none; }
   .gw-bld__art { transition: none; }
   .gw-bld:hover .gw-bld__art, .gw-bld:focus-visible .gw-bld__art { transform: none; }
   .gw-sprout { transition: none; }

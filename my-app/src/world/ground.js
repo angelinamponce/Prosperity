@@ -2,7 +2,7 @@
 // Everything is drawn from code with a fixed noise pattern, so it looks the same on every load.
 // Where two kinds of ground meet, the edge is jagged and dithered rather than a straight line.
 
-import { COLS, MAP_H, MAP_W, ROWS, TILE, tileAt } from "./town";
+import { MAP_H, MAP_W, TILE, TOWN } from "./town";
 
 const P = {
   grass: "#7cbb6e",
@@ -45,7 +45,7 @@ const GROUP = { ".": "green", ",": "green", "*": "green", T: "green", "#": "gree
 export const groupOf = (ch) => GROUP[ch] ?? "green";
 
 /** Which sides of a tile touch a different kind of ground: { n, e, s, w }. */
-export function edgesOf(x, y) {
+export function edgesOf(x, y, tileAt = TOWN.tileAt) {
   const g = groupOf(tileAt(x, y));
   const differs = (dx, dy) => groupOf(tileAt(x + dx, y + dy)) !== g;
   return { n: differs(0, -1), e: differs(1, 0), s: differs(0, 1), w: differs(-1, 0) };
@@ -72,7 +72,7 @@ export function pixelScale(width, height, dpr = 1) {
   return down >= fit * 0.9 ? down : fit;
 }
 
-function paintTile(px, x, y, ch) {
+function paintTile(px, x, y, ch, tileAt) {
   const ox = x * TILE;
   const oy = y * TILE;
   const dot = (dx, dy, c) => px(ox + dx, oy + dy, c);
@@ -86,7 +86,7 @@ function paintTile(px, x, y, ch) {
     case "=": {
       each((dx, dy, n) => dot(dx, dy, n < 0.09 ? P.pathDark : n > 0.95 ? P.pathLight : P.path));
       // Grass creeps onto the path in a jagged, dithered band wherever the two meet.
-      const e = edgesOf(x, y);
+      const e = edgesOf(x, y, tileAt);
       const side = (len, at) => {
         for (let i = 0; i < len; i += 1) {
           const depth = 1 + Math.floor(noise(ox + i, oy + i, 7) * 3); // 1 to 3 px
@@ -107,7 +107,7 @@ function paintTile(px, x, y, ch) {
         for (let dx = start; dx < start + 5; dx += 1) dot(dx, dy, P.waterLight);
       }
       // A soft shoreline where water meets land: a light band, with the grass bank nibbling in here and there.
-      const e = edgesOf(x, y);
+      const e = edgesOf(x, y, tileAt);
       const shore = (at) => {
         for (let i = 0; i < TILE; i += 1) {
           const bank = noise(ox + i, oy + i, 9) < 0.35 ? 2 : 1;
@@ -180,12 +180,12 @@ function paintTile(px, x, y, ch) {
   }
 }
 
-/** Paints the whole town at 1 canvas pixel per art pixel. Scaling up happens when it's shown. */
-export function drawGround(ctx) {
+/** Paints a world's ground at 1 canvas pixel per art pixel. Scaling up happens when it's shown. */
+export function drawGround(ctx, world = TOWN) {
   const px = (x, y, c) => {
     if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return;
     ctx.fillStyle = c;
     ctx.fillRect(x, y, 1, 1);
   };
-  for (let y = 0; y < ROWS; y += 1) for (let x = 0; x < COLS; x += 1) paintTile(px, x, y, tileAt(x, y));
+  for (let y = 0; y < world.rows; y += 1) for (let x = 0; x < world.cols; x += 1) paintTile(px, x, y, world.tileAt(x, y), world.tileAt);
 }
