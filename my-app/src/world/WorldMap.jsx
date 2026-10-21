@@ -40,7 +40,7 @@ const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: 
  * Keys walk Sprout only while the map has focus; tapping the ground walks there; Enter or Space on the
  * map itself calls `onInteract`.
  */
-export function WorldMap({ world, walker, reduced, label, onInteract, onUnreachable, children }) {
+export function WorldMap({ world, walker, reduced, label, onInteract, onUnreachable, emote, children }) {
   const [screenRef, screen] = useBox();
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
@@ -129,6 +129,8 @@ export function WorldMap({ world, walker, reduced, label, onInteract, onUnreacha
               <div className={facing === "right" ? "gw-sprout__flip" : undefined}>
                 <PixelArt rows={sproutRows} palette={SPROUT_PALETTE} size={TILE} />
               </div>
+              {/* A speech bubble over Sprout, e.g. "!" when the tall grass rustles. Words say the same thing below. */}
+              {emote && <span className="gw-emote">{emote}</span>}
             </div>
           </div>
         </div>

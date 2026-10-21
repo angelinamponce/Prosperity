@@ -204,7 +204,7 @@ export function emptyProgress() {
     // missions[id] = { done, at, xp }: xp is what this mission currently holds (0 or XP.mission).
     missions: {},
     // Classic is the default view; Garden mode arrives in a later phase.
-    settings: { view: "classic", sound: false, instantText: false, speedRound: false },
+    settings: { view: "classic", sound: false, instantText: false, speedRound: false, encounters: true },
   };
 }
 

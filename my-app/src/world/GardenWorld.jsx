@@ -2,6 +2,7 @@ import { lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from "reac
 import { AppstoreOutlined, EnvironmentOutlined } from "@ant-design/icons";
 import { prefersReducedMotion } from "../design";
 import { useGame } from "../game/store";
+import { declined, grassStep, newEncounterState } from "../game/encounters";
 import { deriveGarden } from "../game/garden";
 import { gradeBreakdown } from "../dashboard/finance";
 import { GLOSSARY } from "../dashboard/glossary";
@@ -27,6 +28,11 @@ const SCENES = { plot: [GardenScene, "Opening your garden…"], dex: [DexScene, 
 
 // The "Go to..." list doesn't change while Sprout walks, so it skips those re-renders.
 const GoToList = memo(ListMenu);
+// The tall-grass question. It takes focus when it appears; Escape means "Not now".
+const RUSTLE_ITEMS = [
+  { key: "battle", label: "Battle", sub: "3 questions, picked for what you need" },
+  { key: "no", label: "Not now", sub: "Keep walking" },
+];
 
 const PLACES = [
   // Greenhouses are listed by topic so the names fit on one line.
@@ -79,6 +85,9 @@ const PLOT_LINE = "Your garden plot: see what's growing from your numbers. Walk 
 function TownScene({ go, from, profile, metrics, plan }) {
   const fromPlot = from === "plot";
   const fromBuilding = BUILDINGS.find((b) => b.id === from);
+  // ?from=at-x-y: back from a tall-grass battle, right where Sprout was standing.
+  const spot = /^at-(\d+)-(\d+)$/.exec(from ?? "");
+  const fromSpot = spot && TOWN.isWalkable(Number(spot[1]), Number(spot[2])) ? { x: Number(spot[1]), y: Number(spot[2]) } : null;
   const game = useGame();
   const learned = game?.ready ? Object.keys(game.progress.terms).length : 0;
   const garden = useMemo(
@@ -94,8 +103,14 @@ function TownScene({ go, from, profile, metrics, plan }) {
       ? { text: "Back in town. Your garden is right behind you.", speaker: "Sprout", font: "pixel" }
       : fromBuilding
         ? { text: `Back outside the ${fromBuilding.name}.`, speaker: "Sprout", font: "pixel" }
-        : { text: WELCOME, speaker: "Sprout", font: "pixel" }
+        : fromSpot
+          ? { text: "Back in the tall grass. Nice practice!", speaker: "Sprout", font: "pixel" }
+          : { text: WELCOME, speaker: "Sprout", font: "pixel" }
   );
+  // Tall grass: it may rustle, and the game asks before any battle. Off in settings means it never rustles.
+  const encountersOn = game?.progress.settings.encounters !== false;
+  const encounter = useRef(newEncounterState());
+  const [rustle, setRustle] = useState(false);
 
   const enterGarden = () => go("garden?scene=plot");
   const enter = (place) => (place.id === PLOT.id ? enterGarden() : go(place.go));
@@ -104,11 +119,22 @@ function TownScene({ go, from, profile, metrics, plan }) {
   const walker = useWalker({
     world: TOWN,
     // Coming back from the garden, Sprout steps out through the gate.
-    start: fromPlot ? { x: PLOT.gate.x, y: PLOT.gate.y + 1 } : fromBuilding ? { x: fromBuilding.door.x, y: fromBuilding.door.y + 1 } : SPAWN,
+    start: fromPlot ? { x: PLOT.gate.x, y: PLOT.gate.y + 1 } : fromBuilding ? { x: fromBuilding.door.x, y: fromBuilding.door.y + 1 } : fromSpot ?? SPAWN,
     reduced,
     onEnter: enter,
     // Arriving at a door says where it leads.
     onArrive: (p) => {
+      // Walking on means "not now" to any rustle still waiting.
+      if (rustle) setRustle(false);
+      if (TOWN.tileAt(p.x, p.y) === "," && encountersOn) {
+        const r = grassStep(encounter.current);
+        encounter.current = r.state;
+        if (r.rustle) {
+          walker.stop();
+          setRustle(true);
+          return setMessage({ text: "Something's rustling in the tall grass… A Misconception, maybe? Battle it, or keep walking.", speaker: null, font: "pixel" });
+        }
+      }
       if (p.x === PLOT.gate.x && p.y === PLOT.gate.y) return setMessage({ text: PLOT_LINE, speaker: null, font: "pixel" });
       const b = BUILDINGS.find((d) => d.door.x === p.x && d.door.y === p.y);
       if (b) setMessage({ text: `${b.name}: ${b.opens}. Walk up or press A to go in.`, speaker: null, font: "pixel" });
@@ -145,11 +171,28 @@ function TownScene({ go, from, profile, metrics, plan }) {
   const stableInteract = useStable(interact);
   const onPick = useStable((key) => enter(key === PLOT.id ? PLOT : BUILDINGS.find((b) => b.id === key)));
 
+  const onRustle = useStable((key) => {
+    setRustle(false);
+    if (key === "battle") {
+      const p = walker.posRef.current;
+      return go(`battle?from=garden&back=at-${p.x}-${p.y}`);
+    }
+    encounter.current = declined();
+    setMessage({ text: "Okay! Sprout keeps walking. The grass will stay quiet for a while.", speaker: "Sprout", font: "pixel" });
+    // Back to the map, so the arrow keys walk again.
+    return document.querySelector(".gw__map")?.focus();
+  });
+  const toggleEncounters = () => {
+    game?.setSetting("encounters", !encountersOn);
+    setRustle(false);
+  };
+
   const top = (
     <WorldMap
       world={TOWN}
       walker={walker}
       reduced={reduced}
+      emote={rustle ? "!" : null}
       label="Town map"
       onInteract={interact}
       onUnreachable={() => setMessage({ text: "Sprout can't get there. Try somewhere on the grass or the path.", speaker: "Sprout", font: "pixel" })}
@@ -161,10 +204,23 @@ function TownScene({ go, from, profile, metrics, plan }) {
   const bottomScreen = (
     <div className="gw-panel" ref={bottomRef}>
       <TextBox key={message.text} text={message.text} speaker={message.speaker} font={message.font} instant={instant} />
+      {rustle && (
+        <ListMenu
+          label="The tall grass is rustling"
+          columns={2}
+          items={RUSTLE_ITEMS}
+          onSelect={onRustle}
+          onBack={() => onRustle("no")}
+          className="gw-goto gw-rustle"
+        />
+      )}
       <p className="gw-where">
         <EnvironmentOutlined aria-hidden /> Sprout is {TOWN.describe(walker.pos)}.
       </p>
       <WalkControls walker={walker} interact={stableInteract} />
+      <button type="button" className="gw-controls__toggle gw-grass-toggle" aria-pressed={encountersOn} onClick={toggleEncounters}>
+        Tall-grass battles: {encountersOn ? "on" : "off"}
+      </button>
       <GoToList label="Go to a place in town" items={PLACES} columns={bottom.w >= 520 ? 3 : 2} onSelect={onPick} autoFocus={false} className="gw-goto" />
     </div>
   );
