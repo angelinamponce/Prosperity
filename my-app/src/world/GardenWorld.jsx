@@ -18,16 +18,19 @@ import { WalkControls } from "./DPad";
 import { WorldMap, useBox, useStable } from "./WorldMap";
 import "./garden.css";
 
-// The garden scene loads only when someone walks into the plot.
+// Each scene loads only when someone walks in: the plot, the Library (Dex), or a Greenhouse (keeper).
 const GardenScene = lazy(() => import("./GardenScene"));
 const DexScene = lazy(() => import("./DexScene"));
+const KeeperScene = lazy(() => import("./KeeperScene"));
+// ?scene= -> the scene and what to say while it loads.
+const SCENES = { plot: [GardenScene, "Opening your garden…"], dex: [DexScene, "Opening the Garden Dex…"], keeper: [KeeperScene, "Opening the greenhouse…"] };
 
 // The "Go to..." list doesn't change while Sprout walks, so it skips those re-renders.
 const GoToList = memo(ListMenu);
 
 const PLACES = [
   // Greenhouses are listed by topic so the names fit on one line.
-  ...BUILDINGS.map((b) => (b.kind === "greenhouse" ? { key: b.id, label: b.name.replace(" Greenhouse", ""), sub: "Greenhouse · quiz battle" } : { key: b.id, label: b.name, sub: b.opens })),
+  ...BUILDINGS.map((b) => (b.kind === "greenhouse" ? { key: b.id, label: b.name.replace(" Greenhouse", ""), sub: "Greenhouse · keeper challenge" } : { key: b.id, label: b.name, sub: b.opens })),
   { key: PLOT.id, label: PLOT.name, sub: "See what's growing from your numbers" },
 ];
 
@@ -213,10 +216,10 @@ export default function GardenWorld(props) {
   }, [game]);
 
   const scene = query?.get("scene");
-  if (scene === "plot" || scene === "dex") {
-    const Scene = scene === "plot" ? GardenScene : DexScene;
+  if (SCENES[scene]) {
+    const [Scene, loading] = SCENES[scene];
     return (
-      <Suspense fallback={<div className="px-root gw-loading" role="status">{scene === "plot" ? "Opening your garden…" : "Opening the Garden Dex…"}</div>}>
+      <Suspense fallback={<div className="px-root gw-loading" role="status">{loading}</div>}>
         <Scene {...props} />
       </Suspense>
     );

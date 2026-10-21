@@ -234,3 +234,37 @@ describe("Phase 9: quiz answers teach words, befriending is remembered", () => {
     expect(XP.termLearned).toBe(10);
   });
 });
+
+describe("Phase 9b: Greenhouse keeper challenges", () => {
+  const { reduce, emptyProgress, KEEPER, BADGES } = require("../rules");
+  const result = (p, firstTry, at = 1) => reduce(p, { type: "keeperResult", topic: "debt", firstTry, total: KEEPER.questions, at });
+
+  test("4 of 6 on the first try passes and earns that greenhouse's badge, once", () => {
+    const a = result(emptyProgress(), 4);
+    expect(a.progress.quiz.keepers.debt).toEqual({ best: 4, tries: 1, passedAt: 1, last: 4 });
+    expect(a.progress.badges["keeper-debt"]).toBeTruthy();
+    expect(a.events.some((e) => e.type === "badge" && e.badge.id === "keeper-debt")).toBe(true);
+    const b = result(a.progress, 6, 2);
+    expect(b.progress.quiz.keepers.debt).toMatchObject({ best: 6, tries: 2, passedAt: 1 });
+    expect(b.events.some((e) => e.type === "badge")).toBe(false);
+  });
+
+  test("a miss costs nothing: no badge, best score kept, and a later lower score never lowers it", () => {
+    const a = result(emptyProgress(), 3);
+    expect(a.progress.quiz.keepers.debt).toEqual({ best: 3, tries: 1, passedAt: null, last: 3 });
+    expect(a.progress.badges["keeper-debt"]).toBeUndefined();
+    expect(a.progress.xp).toBe(0);
+    const b = result(a.progress, 1, 2);
+    expect(b.progress.quiz.keepers.debt.best).toBe(3);
+    // Passing later, and then doing worse, keeps the badge.
+    const c = result(result(b.progress, 5, 3).progress, 0, 4);
+    expect(c.progress.badges["keeper-debt"]).toBeTruthy();
+    expect(c.progress.quiz.keepers.debt.passedAt).toBe(3);
+  });
+
+  test("one badge per greenhouse, each explaining exactly what it takes", () => {
+    const keeperBadges = BADGES.filter((b) => b.id.startsWith("keeper-"));
+    expect(keeperBadges.map((b) => b.id)).toEqual(["keeper-budgeting", "keeper-debt", "keeper-saving", "keeper-investing"]);
+    for (const b of keeperBadges) expect(b.how).toContain("4 of 6 right on the first try");
+  });
+});

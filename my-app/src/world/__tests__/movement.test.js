@@ -1,8 +1,8 @@
 import { buildingEntered, directionTo, facingPlace, findPath, pathToward, step } from "../movement";
 import { BUILDINGS, PLOT, SPAWN, TOWN, isWalkable } from "../town";
+import { SPROUT_FRAMES, SPROUT_PALETTE } from "../sprites";
 
 const describeSpot = TOWN.describe;
-import { SPROUT_FRAMES, SPROUT_PALETTE } from "../sprites";
 
 const home = BUILDINGS.find((b) => b.id === "home");
 const library = BUILDINGS.find((b) => b.id === "library");

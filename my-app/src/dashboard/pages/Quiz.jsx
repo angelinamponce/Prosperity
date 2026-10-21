@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRightOutlined, BulbOutlined, CheckCircleFilled, CloseCircleFilled, ScissorOutlined, ThunderboltOutlined } from "@ant-design/icons";
-import { Badge, Button, Card } from "../../design";
-import { ASSIST_SHARE, QUIZ_TOPICS, XP, answerXpPreview, useGame } from "../../game";
+import { Badge, Button, Card, StageIcon } from "../../design";
+import { ASSIST_SHARE, KEEPER, QUIZ_TOPICS, XP, answerXpPreview, useGame } from "../../game";
+import { KEEPERS, keeperStatus, keeperVerdict } from "../../game/keepers";
 import { BANK } from "../../quiz/bank";
 import { DIFFICULTY, TOPICS } from "../../quiz/topics";
 import { dueCounts, seededRandom, selectQuestions } from "../../quiz/select";
@@ -14,7 +15,8 @@ import "../../quiz/quiz.css";
 const QUESTIONS_PER_QUIZ = 5;
 const sharePct = (k) => `${Math.round(ASSIST_SHARE[k] * 100)}%`;
 
-function TopicMenu({ quiz, onStart, onBattle }) {
+function TopicMenu({ progress, onStart, onBattle }) {
+  const { quiz } = progress;
   const due = dueCounts(BANK, quiz);
   const totals = BANK.reduce((a, q) => ({ ...a, [q.topic]: (a[q.topic] ?? 0) + 1 }), {});
   return (
@@ -38,6 +40,7 @@ function TopicMenu({ quiz, onStart, onBattle }) {
               <p className="qz-topic__stats">
                 {s ? `${s.correct} of ${s.seen} answers right` : "Not tried yet"} · {due[t] ?? 0} of {totals[t]} ready to practice
               </p>
+              <KeeperLine topic={t} status={keeperStatus(progress, t)} />
               <div className="qz-topic__actions">
                 <Button variant="secondary" size="sm" onClick={() => onStart(t)} aria-label={`Practice ${TOPICS[t].label}`}>
                   Practice
@@ -45,12 +48,29 @@ function TopicMenu({ quiz, onStart, onBattle }) {
                 <Button variant="ghost" size="sm" icon={<ThunderboltOutlined />} onClick={() => onBattle(t)} aria-label={`Battle: ${TOPICS[t].label}`}>
                   Battle
                 </Button>
+                <Button variant="secondary" size="sm" onClick={() => onStart(t, true)} aria-label={`${KEEPERS[t].name}'s ${TOPICS[t].label} challenge`}>
+                  Keeper challenge
+                </Button>
               </div>
             </li>
           );
         })}
       </ul>
     </>
+  );
+}
+
+/** The topic's Greenhouse badge: earned, or what it takes. */
+function KeeperLine({ topic, status }) {
+  return (
+    <p className={`qz-keeper${status.passed ? " is-earned" : ""}`}>
+      <StageIcon stage={`gh-${topic}`} size={28} />
+      <span>
+        {status.passed
+          ? `${TOPICS[topic].label} Badge earned · best ${status.best} of ${KEEPER.questions}`
+          : `${TOPICS[topic].label} Badge: ${KEEPER.pass} of ${KEEPER.questions} on the first try${status.tries ? ` · best so far ${status.best}` : ""}`}
+      </span>
+    </p>
   );
 }
 
@@ -202,19 +222,34 @@ function QuestionView({ session, setSession, game, profile, onLeave, onEarn }) {
   );
 }
 
-function Results({ session, xp, onAgain, onMenu }) {
+function Results({ session, xp, keeper, game, onAgain, onMenu }) {
   const s = summary(session);
   const headRef = useRef(null);
   useEffect(() => headRef.current?.focus(), []);
   const great = s.correct === s.total;
+  // A keeper challenge records its result once, when the results first show.
+  const [newBadge] = useState(() => keeper && s.correct >= KEEPER.pass && !game.progress.quiz.keepers[session.topic]?.passedAt);
+  const recorded = useRef(false);
+  useEffect(() => {
+    if (!keeper || recorded.current) return;
+    recorded.current = true;
+    game.dispatch({ type: "keeperResult", topic: session.topic, firstTry: s.correct, total: s.total });
+  }, [keeper, game, session.topic, s.correct, s.total]);
   return (
     <Card className="qz-card ps-enter">
       <div className="qz-result">
         <SproutMascot variant="full" size={72} mood={great ? "cheer" : "wave"} />
         <div>
           <h2 className="ps-h2" ref={headRef} tabIndex={-1}>
-            {great ? "A perfect round!" : s.correct > 0 ? "Nice round!" : "Thanks for practicing!"}
+            {keeper ? (s.correct >= KEEPER.pass ? "Challenge passed!" : "Good try!") : great ? "A perfect round!" : s.correct > 0 ? "Nice round!" : "Thanks for practicing!"}
           </h2>
+          {keeper && <p className="ps-body">{keeperVerdict(session.topic, s.correct, s.total)}</p>}
+          {newBadge && (
+            <p className="qz-keeper is-earned">
+              <StageIcon stage={`gh-${session.topic}`} size={28} />
+              <span>You earned the {TOPICS[session.topic].label} Badge! +{XP.badge} XP</span>
+            </p>
+          )}
           <p className="ps-body">
             You got {s.correct} of {s.total} right on the first try
             {s.fixedOnRetry ? `, and fixed ${s.fixedOnRetry} more on a second look` : ""}. {xp > 0 ? `+${xp} XP this quiz.` : ""}
@@ -234,7 +269,7 @@ function Results({ session, xp, onAgain, onMenu }) {
         ))}
       </ol>
       <div className="qz-actions">
-        <Button iconRight={<ArrowRightOutlined />} onClick={onAgain}>Another quiz</Button>
+        <Button iconRight={<ArrowRightOutlined />} onClick={onAgain}>{keeper ? "Try the challenge again" : "Another quiz"}</Button>
         <Button variant="secondary" onClick={onMenu}>Back to topics</Button>
       </div>
     </Card>
@@ -246,11 +281,15 @@ export default function Quiz({ profile, metrics, go }) {
   const [session, setSession] = useState(null);
   const [xp, setXp] = useState(0);
   const [seed] = useState(() => Date.now() % 100000);
+  const [keeper, setKeeper] = useState(false);
   if (!game?.ready) return <EmptyState title="Getting your quizzes ready…" />;
 
-  const start = (topic) => {
+  // asKeeper: the topic's Greenhouse keeper challenge, the same rules as in Garden mode.
+  const start = (topic, asKeeper = false) => {
     const now = Date.now();
-    const picked = selectQuestions(BANK, game.progress.quiz, { count: QUESTIONS_PER_QUIZ, topic, level: game.info.level, now, rng: seededRandom(now) });
+    const count = asKeeper ? KEEPER.questions : QUESTIONS_PER_QUIZ;
+    const picked = selectQuestions(BANK, game.progress.quiz, { count, topic, level: game.info.level, now, rng: seededRandom(now) });
+    setKeeper(asKeeper);
     setXp(0);
     setSession(startSession(picked.map((q) => resolveQuestion(q, { profile, metrics }, seed)), { topic }));
     window.scrollTo({ top: 0 });
@@ -260,10 +299,10 @@ export default function Quiz({ profile, metrics, go }) {
     <>
       <PageHeader
         eyebrow="Quizzes"
-        title={session ? (session.topic ? `${TOPICS[session.topic].label} quiz` : "Quick quiz") : "Money quizzes"}
+        title={session ? (keeper ? `${KEEPERS[session.topic].name}'s ${TOPICS[session.topic].label} challenge` : session.topic ? `${TOPICS[session.topic].label} quiz` : "Quick quiz") : "Money quizzes"}
         description="Short questions in plain English. Every answer explains the math behind it."
       />
-      {!session && <TopicMenu quiz={game.progress.quiz} onStart={start} onBattle={(t) => go(t ? `battle?topic=${t}` : "battle")} />}
+      {!session && <TopicMenu progress={game.progress} onStart={start} onBattle={(t) => go(t ? `battle?topic=${t}` : "battle")} />}
       {session && session.phase !== "done" && (
         <QuestionView
           session={session}
@@ -274,7 +313,9 @@ export default function Quiz({ profile, metrics, go }) {
           onEarn={(n) => setXp((x) => x + n)}
         />
       )}
-      {session?.phase === "done" && <Results session={session} xp={xp} onAgain={() => start(session.topic)} onMenu={() => setSession(null)} />}
+      {session?.phase === "done" && (
+        <Results session={session} xp={xp} keeper={keeper} game={game} onAgain={() => start(session.topic, keeper)} onMenu={() => setSession(null)} />
+      )}
     </>
   );
 }

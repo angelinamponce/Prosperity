@@ -38,10 +38,10 @@ export const BUILDINGS = [
   { id: "home", kind: "home", name: "Home", x: 2, y: 2, w: 4, h: 3, door: { x: 3, y: 5 }, opens: "Your dashboard", go: "" },
   { id: "library", kind: "library", name: "Library", x: 15, y: 2, w: 4, h: 3, door: { x: 16, y: 5 }, opens: "Garden Dex: money words", go: "garden?scene=dex" },
   { id: "toolshed", kind: "toolshed", name: "Toolshed", x: 20, y: 3, w: 3, h: 2, door: { x: 21, y: 5 }, opens: "Debt planner", go: "debt" },
-  { id: "gh-budgeting", kind: "greenhouse", topic: "budgeting", name: "Budgeting Greenhouse", x: 4, y: 10, w: 3, h: 2, door: { x: 5, y: 12 }, opens: "Budgeting quiz battle", go: "battle?topic=budgeting&from=garden" },
-  { id: "gh-debt", kind: "greenhouse", topic: "debt", name: "Debt Greenhouse", x: 7, y: 10, w: 3, h: 2, door: { x: 8, y: 12 }, opens: "Debt quiz battle", go: "battle?topic=debt&from=garden" },
-  { id: "gh-saving", kind: "greenhouse", topic: "saving", name: "Saving Greenhouse", x: 14, y: 10, w: 3, h: 2, door: { x: 15, y: 12 }, opens: "Saving quiz battle", go: "battle?topic=saving&from=garden" },
-  { id: "gh-investing", kind: "greenhouse", topic: "investing", name: "Investing Greenhouse", x: 17, y: 10, w: 3, h: 2, door: { x: 18, y: 12 }, opens: "Investing quiz battle", go: "battle?topic=investing&from=garden" },
+  { id: "gh-budgeting", kind: "greenhouse", topic: "budgeting", name: "Budgeting Greenhouse", x: 4, y: 10, w: 3, h: 2, door: { x: 5, y: 12 }, opens: "Keeper Fern: challenge and practice", go: "garden?scene=keeper&topic=budgeting" },
+  { id: "gh-debt", kind: "greenhouse", topic: "debt", name: "Debt Greenhouse", x: 7, y: 10, w: 3, h: 2, door: { x: 8, y: 12 }, opens: "Keeper Bram: challenge and practice", go: "garden?scene=keeper&topic=debt" },
+  { id: "gh-saving", kind: "greenhouse", topic: "saving", name: "Saving Greenhouse", x: 14, y: 10, w: 3, h: 2, door: { x: 15, y: 12 }, opens: "Keeper Maple: challenge and practice", go: "garden?scene=keeper&topic=saving" },
+  { id: "gh-investing", kind: "greenhouse", topic: "investing", name: "Investing Greenhouse", x: 17, y: 10, w: 3, h: 2, door: { x: 18, y: 12 }, opens: "Keeper Rowan: challenge and practice", go: "garden?scene=keeper&topic=investing" },
   { id: "weather", kind: "weather", name: "Weather Station", x: 21, y: 9, w: 2, h: 3, door: { x: 21, y: 12 }, opens: "Possible futures", go: "future" },
 ];
 

@@ -154,3 +154,35 @@ test("a level-up and a new badge are announced inside the battle", () => {
   expect(said).toContain("You earned the Good Question badge!");
   expect(screen.getByText("Lv 3")).toBeInTheDocument();
 });
+
+test("a Greenhouse keeper challenge: the team takes turns, 4 of 6 first-try passes and earns the badge", () => {
+  const ids = BANK.filter((q) => q.topic === "debt").slice(0, 6).map((q) => q.id);
+  const qs = ids.map((id) => resolveQuestion(BANK.find((q) => q.id === id), ctx, 1));
+  const go = jest.fn();
+  render(<Harness go={go} query={new URLSearchParams("topic=debt&keeper=1&from=garden&back=gh-debt")} battle={{ topic: "debt", foe: foeById("minimum-mite"), questions: qs }} />);
+  expect(screen.getAllByText(/6 questions. 4 right on the first try earns the Debt Badge/).length).toBeGreaterThan(0);
+  const seenFoes = new Set();
+  // Two wrong first tries (fixed later), four right: exactly the pass mark.
+  let wrong = 2;
+  for (let n = 0; n < 12 && !screen.queryByRole("menuitem", { name: /try the challenge again/i }); n += 1) {
+    continueToMenu();
+    if (screen.queryByRole("menuitem", { name: /try the challenge again/i })) break;
+    seenFoes.add(document.querySelector(".bt-plate--foe .bt-plate__name").textContent);
+    // Find the question on screen by its four choices.
+    fireEvent.click(menuItem("^Answer"));
+    const labels = screen.getAllByRole("menuitem").map((b) => b.querySelector(".lm__label").textContent);
+    const q = qs.find((x) => x.choices.every((c, i) => labels[i] === c));
+    const retry = JSON.parse(localStorage.getItem(gameKey("tester"))).quiz?.q[q.id];
+    const pick = wrong > 0 && !retry ? (q.correct + 1) % 4 : q.correct;
+    if (pick !== q.correct) wrong -= 1;
+    fireEvent.click(screen.getAllByRole("menuitem")[pick]);
+    for (let i = 0; i < 20 && !screen.queryByRole("menu"); i += 1) fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  }
+  expect(seenFoes).toEqual(new Set(["Minimum Mite", "Interest Imp"]));
+  const saved = JSON.parse(localStorage.getItem(gameKey("tester")));
+  expect(saved.quiz.keepers.debt).toMatchObject({ best: 4, tries: 1, last: 4 });
+  expect(saved.badges["keeper-debt"]).toBeTruthy();
+  expect(screen.getAllByText(/Keeper Bram: You passed! 4 of 6 right on the first try/).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("menuitem", { name: /back to town/i }));
+  expect(go).toHaveBeenCalledWith("garden?from=gh-debt");
+});

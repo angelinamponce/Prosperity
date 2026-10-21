@@ -56,6 +56,20 @@ const ART = {
   ),
 };
 
+// Greenhouse keeper badges: the greenhouse with its topic's mark inside. Sage only, like all reward UI.
+const house = <path d="M6.5 26.5V15a9.5 9.5 0 0 1 19 0v11.5Z" fill="var(--ps-brand-50)" stroke="var(--ps-brand-600)" strokeWidth="2" strokeLinejoin="round" />;
+const MARK = { fill: "none", stroke: "var(--ps-brand-700)", strokeWidth: 2.2, strokeLinecap: "round", strokeLinejoin: "round" };
+Object.assign(ART, {
+  // A plan: three lines of a list.
+  "gh-budgeting": <>{ground}{house}<path d="M11 15.5h10M11 19.5h7M11 23.5h9" {...MARK} /></>,
+  // Debt going down.
+  "gh-debt": <>{ground}{house}<path d="M16 13.5v10M12 19.5l4 4 4-4" {...MARK} /></>,
+  // A drop of water saved for later.
+  "gh-saving": <>{ground}{house}<path d="M16 13c2.6 3.4 4 5.6 4 7.4a4 4 0 0 1-8 0c0-1.8 1.4-4 4-7.4Z" {...MARK} /></>,
+  // Slow, uneven growth over time.
+  "gh-investing": <>{ground}{house}<path d="M10.5 23.5l3.5-4 3 2 4.5-6M18.5 15.5h3v3" {...MARK} /></>,
+});
+
 /** Decorative unless `label` is given, e.g. <StageIcon stage="sapling" label="Sapling stage" />. */
 export function StageIcon({ stage = "seed", size = 32, label, className = "" }) {
   return (

@@ -19,6 +19,10 @@ export const XP = {
 // ---------- Quizzes ----------
 
 export const QUIZ_TOPICS = ["budgeting", "debt", "saving", "investing"];
+// Greenhouse keeper challenges: 6 questions; 4 right on the first try earns that greenhouse's badge.
+// Missing it costs nothing, and you can try again right away.
+export const KEEPER = { questions: 6, pass: 4 };
+const TOPIC_NAMES = { budgeting: "Budgeting", debt: "Debt", saving: "Saving", investing: "Investing" };
 // A correct answer is worth this much by difficulty (1 to 3).
 export const QUIZ_XP = { 1: 8, 2: 12, 3: 16 };
 // Help never costs XP; it only lowers what this answer earns, and the UI says so up front.
@@ -174,6 +178,14 @@ export const BADGES = [
   { id: "word-collector", name: "Word Collector", icon: "tree", how: "Learn every money word on the dashboard.", earned: (p, ctx) => ctx.termKeys.length > 0 && ctx.termKeys.every((k) => p.terms[k]) },
   { id: "good-question", name: "Good Question", icon: "sprout", how: "Answer a quiz question correctly.", earned: (p) => QUIZ_TOPICS.some((t) => p.quiz.topics[t]?.correct > 0) },
   { id: "well-rounded", name: "Well Rounded", icon: "young", how: "Get a quiz question right in all four topics.", earned: (p) => QUIZ_TOPICS.every((t) => p.quiz.topics[t]?.correct > 0) },
+  // One for each Greenhouse keeper's challenge.
+  ...QUIZ_TOPICS.map((t) => ({
+    id: `keeper-${t}`,
+    name: `${TOPIC_NAMES[t]} Badge`,
+    icon: `gh-${t}`,
+    how: `Pass the ${TOPIC_NAMES[t]} Greenhouse keeper's challenge: ${KEEPER.pass} of ${KEEPER.questions} right on the first try.`,
+    earned: (p) => Boolean(p.quiz.keepers[t]?.passedAt),
+  })),
 ];
 
 export const SCHEMA_VERSION = 2;
@@ -187,7 +199,7 @@ export function emptyProgress() {
     flags: { surveyDone: false, tourDone: false },
     streak: { count: 0, freezes: START_FREEZES, best: 0, total: 0, lastWeek: null },
     // q: per-question history and review timing; topics: answers per topic.
-    // befriended[foeId] = { first, times }; keepers are filled in by Greenhouse keepers.
+    // befriended[foeId] = { first, times }; keepers[topic] = { best, tries, passedAt, last }.
     quiz: { q: {}, topics: {}, befriended: {}, keepers: {} },
     // missions[id] = { done, at, xp }: xp is what this mission currently holds (0 or XP.mission).
     missions: {},
@@ -218,7 +230,7 @@ export function normalizeProgress(raw) {
  * Applies one game action and returns the new progress plus the events to celebrate.
  * Actions: { type: "learnTerm", key, title } | { type: "checkIn", week } | { type: "surveyDone" } | { type: "tourDone" }
  *        | { type: "answerQuestion", id, topic, difficulty, correct, assists: { hint, sprout }, term?, termTitle? }
- *        | { type: "befriend", id, name }
+ *        | { type: "befriend", id, name } | { type: "keeperResult", topic, firstTry, total }
  *        | { type: "completeMission", id, title } | { type: "undoMission", id }
  * Repeating an action never awards XP twice. ctx.termKeys lists the dashboard's money words.
  */
@@ -265,6 +277,16 @@ export function reduce(progress, action, ctx = { termKeys: [] }) {
         p = { ...p, terms: { ...p.terms, [action.term]: true } };
         addXp(XP.termLearned, `You learned "${action.termTitle ?? action.term}"`);
       }
+      break;
+    }
+    case "keeperResult": {
+      // Keeps the best first-try score and when the challenge was first passed. A miss never takes anything away.
+      const prev = p.quiz.keepers[action.topic] ?? { best: 0, tries: 0, passedAt: null };
+      const at = action.at ?? Date.now();
+      const passed = action.firstTry >= KEEPER.pass;
+      const next = { best: Math.max(prev.best, action.firstTry), tries: prev.tries + 1, passedAt: prev.passedAt ?? (passed ? at : null), last: action.firstTry };
+      p = { ...p, quiz: { ...p.quiz, keepers: { ...p.quiz.keepers, [action.topic]: next } } };
+      events.push({ type: "keeperResult", topic: action.topic, passed, firstTime: passed && !prev.passedAt });
       break;
     }
     case "befriend": {

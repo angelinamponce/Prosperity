@@ -1,0 +1,18 @@
+/* Inside a Greenhouse: the keeper among glass panes and planters. */
+.kp-view { position: absolute; inset: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; place-items: center; gap: 8px; padding: 10px; background: #e3f2ee; overflow: hidden; }
+/* Glass panes and a row of planters, drawn with gradients only. */
+.kp-glass {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, transparent 0 74%, #8b6a45 74% 80%, #a9cf8a 80% 100%),
+    repeating-linear-gradient(90deg, transparent 0 62px, #b8dcd6 62px 66px),
+    linear-gradient(180deg, #d4ece8 0 30%, #e9f6f3 30% 74%);
+}
+.kp-keeper { position: relative; display: grid; place-items: end center; height: 100%; min-height: 0; }
+.kp-keeper svg { height: min(100%, 200px); width: auto; image-rendering: pixelated; }
+.kp-plate { position: relative; min-width: min(80%, 320px); padding: 4px 14px 6px; border: 3px solid var(--px-frame); border-radius: 10px; background: var(--px-paper); text-align: center; }
+.kp-plate__name { font-family: var(--px-font); font-size: 1.05rem; color: var(--px-ink); }
+.kp-plate__sub { font-family: var(--ps-font); font-size: 0.8rem; color: var(--px-ink-2); }
+.kp-plate__sub .anticon { color: var(--ps-brand-700); }
+.kp-badge { position: absolute; top: 10px; right: 10px; padding: 4px; border: 3px solid var(--px-frame); border-radius: 50%; background: var(--px-paper); line-height: 0; }
+.kp-status { font-family: var(--ps-font); font-size: 0.82rem; color: var(--px-ink-2); }

@@ -98,3 +98,9 @@
   .qz-choice, .qz-progress div { transition: none; }
   .qz-choice:active { transform: none; }
 }
+
+/* A topic's Greenhouse badge line: earned, or what it takes. */
+.qz-keeper { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; color: var(--ps-text-muted); font-size: var(--ps-text-sm); }
+.qz-keeper.is-earned { color: var(--ps-brand-700); font-weight: 600; }
+.qz-keeper .ps-stage { flex-shrink: 0; }
+.qz-keeper:not(.is-earned) .ps-stage { opacity: 0.55; filter: grayscale(0.6); }

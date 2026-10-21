@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatedNumber, prefersReducedMotion } from "../design";
 import { useGame } from "../game/store";
-import { BADGES, XP, answerXpPreview } from "../game/rules";
+import { BADGES, KEEPER, XP, answerXpPreview } from "../game/rules";
+import { KEEPERS, keeperVerdict } from "../game/keepers";
 import { BANK } from "../quiz/bank";
 import { DIFFICULTY, TOPICS } from "../quiz/topics";
 import { seededRandom, selectQuestions } from "../quiz/select";
@@ -11,7 +12,7 @@ import { ListMenu } from "../world/ListMenu";
 import { TextBox } from "../world/TextBox";
 import { PixelArt } from "../world/PixelArt";
 import { SPROUT_BATTLE, SPROUT_PALETTE } from "../world/sprites";
-import { pickFoe } from "./foes";
+import { FOES, pickFoe } from "./foes";
 import { GLOSSARY } from "../dashboard/glossary";
 import { FoeSprite } from "./sprites";
 import "./battle.css";
@@ -40,19 +41,38 @@ function numbersLine(q, fromSurvey) {
   return read(`${source}: ${q.numbers.map((n) => `${n.label} ${n.value}`).join(" · ")}`);
 }
 
-function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit, onAgain, onSignUp }) {
+function Battle({ game, profile, metrics, query, given, demo, keeper, fromGarden, onExit, onAgain, onSignUp }) {
   const [setup] = useState(
     () =>
       given ??
-      setupBattle({ quiz: game.progress.quiz, level: game.info.level, topic: query?.get("topic"), ctx: { profile, metrics }, count: demo ? 1 : STRENGTH })
+      setupBattle({
+        quiz: game.progress.quiz,
+        level: game.info.level,
+        topic: query?.get("topic"),
+        ctx: { profile, metrics },
+        count: demo ? 1 : keeper ? KEEPER.questions : STRENGTH,
+      })
   );
-  const { foe } = setup;
+  // A keeper challenge is against the keeper's team: the topic's Misconceptions take turns.
+  const keeperInfo = keeper ? KEEPERS[setup.topic] : null;
+  const team = keeperInfo ? FOES.filter((f) => f.topic === setup.topic) : [setup.foe];
+  const foeAt = (pos) => team[pos % team.length];
   const instant = Boolean(game.progress.settings.instantText) || Boolean(prefersReducedMotion());
   const [session, setSession] = useState(() => startSession(setup.questions, { mode: "battle", topic: setup.topic }));
+  const foe = foeAt(session.pos);
   const [strength, setStrength] = useState(setup.questions.length);
-  const opening = (q) => (q?.myth ? [say(`“${q.myth}”`, { speaker: foe.name })] : []);
+  const opening = (q, f = foe) => (q?.myth ? [say(`“${q.myth}”`, { speaker: f.name })] : []);
   const [talk, setTalk] = useState(() => ({
-    lines: [...(demo ? [say("Here's a one-question practice battle. No account needed!", { speaker: "Sprout" })] : []), say(`${foe.name} ${foe.intro}`), ...opening(currentQuestion(session))],
+    lines: [
+      ...(demo ? [say("Here's a one-question practice battle. No account needed!", { speaker: "Sprout" })] : []),
+      ...(keeperInfo
+        ? [
+            say(`Let's see what you've learned! ${KEEPER.questions} questions. ${KEEPER.pass} right on the first try earns the ${TOPICS[setup.topic].label} Badge.`, { speaker: keeperInfo.name }),
+            say(`${foeAt(0).name} steps up!`),
+          ]
+        : [say(`${foeAt(0).name} ${foeAt(0).intro}`)]),
+      ...opening(currentQuestion(session), foeAt(0)),
+    ],
     i: 0,
     then: "menu",
   }));
@@ -60,7 +80,9 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
   const [fx, setFx] = useState({ n: 0, kind: null }); // kind: "hit" | "wilt"
   const [paused, setPaused] = useState(false);
   const [xpWon, setXpWon] = useState(0);
-  const [ending, setEnding] = useState(null); // "befriended" | "wandered"
+  const [ending, setEnding] = useState(null); // "befriended" | "wandered", or for a keeper: "passed" | "tried"
+  // Keeper endings reuse the wild-battle looks: a pass cheers like befriending, a miss strolls off.
+  const endLook = ending === "passed" ? "befriended" : ending === "tried" ? "wandered" : ending;
 
   const q = currentQuestion(session);
   const assists = q ? assistsFor(session, q.id) : { hint: false, sprout: false };
@@ -76,7 +98,7 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
     const t = setTimeout(() => setPosing(false), fx.kind === "wilt" ? 1100 : 560);
     return () => clearTimeout(t);
   }, [fx.n, fx.kind]);
-  const foeState = ending === "befriended" ? "happy" : posing && fx.kind === "hit" ? "hit" : "idle";
+  const foeState = endLook === "befriended" ? "happy" : posing && fx.kind === "hit" ? "hit" : "idle";
   const sproutPose = posing && fx.kind === "wilt" ? "wilt" : posing && fx.kind === "hit" ? "step" : "idle";
 
   // Level-ups and new badges are announced right here in the battle (the dashboard toasts stay quiet).
@@ -117,6 +139,13 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
     if (then === "nextQuestion") {
       const s = next(session);
       setSession(s);
+      if (keeperInfo && (strength === 0 || s.phase === "done")) {
+        const sum = summary(s);
+        const passed = sum.correct >= KEEPER.pass;
+        game.dispatch({ type: "keeperResult", topic: setup.topic, firstTry: sum.correct, total: sum.total });
+        setEnding(passed ? "passed" : "tried");
+        return speak([read(keeperVerdict(setup.topic, sum.correct, sum.total))], "end");
+      }
       if (strength === 0) {
         setEnding("befriended");
         game.dispatch({ type: "befriend", id: foe.id, name: foe.name });
@@ -126,7 +155,9 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
         setEnding("wandered");
         return speak([say(`${foe.name} wandered off to think it over.`), say("No worries. It'll be back, and so will those questions.")], "end");
       }
-      return speak(opening(currentQuestion(s)).length ? opening(currentQuestion(s)) : [say(`${foe.name} has another question!`)], "menu");
+      const nf = foeAt(s.pos);
+      const lines = opening(currentQuestion(s), nf);
+      return speak([...(nf !== foe ? [say(`${nf.name} steps up!`)] : []), ...(lines.length ? lines : [say(`${nf.name} has another question!`)])], "menu");
     }
     setPhase(then);
   };
@@ -191,14 +222,14 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
   // ---------- Top screen ----------
   const helped = assists.hint || assists.sprout;
   const top = (
-    <div className={`bt-scene${ending ? ` is-${ending}` : ""}`}>
+    <div className={`bt-scene${endLook ? ` is-${endLook}` : ""}`}>
       <div className="bt-sky" aria-hidden />
       <div className="bt-field" aria-hidden />
 
       <div className="bt-plate bt-plate--foe">
         <div className="bt-plate__row">
           <span className="bt-plate__name">{foe.name}</span>
-          <span className="bt-plate__lv">{TOPICS[setup.topic].label}{q ? ` · ${DIFFICULTY[q.difficulty]}` : ""}</span>
+          <span className="bt-plate__lv">{keeperInfo ? `${keeperInfo.name}'s team` : TOPICS[setup.topic].label}{q ? ` · ${DIFFICULTY[q.difficulty]}` : ""}</span>
         </div>
         <div className="bt-bar">
           <span className="bt-bar__label">Myth</span>
@@ -221,7 +252,7 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
 
       <div className="bt-pad bt-pad--sprout" aria-hidden />
       <div className="bt-sprout bt-enter-sprout" aria-hidden>
-        <div key={`sp-${fx.n}`} className={`bt-sprout__body${fx.kind === "hit" ? " fx-lunge" : fx.kind === "wilt" ? " fx-wilt" : ""}${ending === "befriended" ? " is-cheer" : ""}`}>
+        <div key={`sp-${fx.n}`} className={`bt-sprout__body${fx.kind === "hit" ? " fx-lunge" : fx.kind === "wilt" ? " fx-wilt" : ""}${endLook === "befriended" ? " is-cheer" : ""}`}>
           <PixelArt rows={SPROUT_BATTLE[sproutPose]} palette={SPROUT_PALETTE} size={96} />
         </div>
         {glow > 0 && <span key={`lv-${glow}`} className="bt-levelup" />}
@@ -279,7 +310,11 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
         <TextBox
           font="read"
           instant
-          text={`${ending === "befriended" ? `You befriended ${foe.name}!` : `${foe.name} will be back another time.`} You got ${sum.correct} of ${sum.total} right on the first try${sum.fixedOnRetry ? ` and fixed ${sum.fixedOnRetry} on a second look` : ""}.${xpWon ? ` +${xpWon} XP.` : ""}`}
+          text={
+            keeperInfo
+              ? `${keeperVerdict(setup.topic, sum.correct, sum.total)}${xpWon ? ` +${xpWon} XP.` : ""}`
+              : `${ending === "befriended" ? `You befriended ${foe.name}!` : `${foe.name} will be back another time.`} You got ${sum.correct} of ${sum.total} right on the first try${sum.fixedOnRetry ? ` and fixed ${sum.fixedOnRetry} on a second look` : ""}.${xpWon ? ` +${xpWon} XP.` : ""}`
+          }
         />
         <ListMenu
           label="What next?"
@@ -287,7 +322,7 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
           items={
             demo
               ? [{ key: "signup", label: "Plant your first seed", sub: "See your own plan" }, { key: "home", label: "Back to home" }]
-              : [{ key: "again", label: "Battle again" }, { key: "quizzes", label: fromGarden ? "Back to town" : "Back to quizzes" }]
+              : [{ key: "again", label: keeperInfo ? "Try the challenge again" : "Battle again" }, { key: "quizzes", label: fromGarden ? "Back to town" : "Back to quizzes" }]
           }
           onSelect={(k) => (k === "again" ? onAgain() : k === "signup" ? onSignUp() : onExit())}
         />
@@ -363,13 +398,17 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
 
 /**
  * Quiz Battles. Runs the same quiz session, questions and progress as the Classic quiz page, shown as a
- * turn-based battle. `query` may carry ?topic= or ?demo=1; `setup` overrides the questions (tests, Greenhouse keepers).
+ * turn-based battle. `query` may carry ?topic=, ?demo=1, ?keeper=1 (a Greenhouse keeper's challenge) and
+ * ?from=garden&back=<building>; `setup` overrides the questions (tests).
  */
 export default function BattleScreen({ profile, metrics, go, navigate, query, setup }) {
   // ?demo=1: the one-question battle from the landing page. It returns there instead of to Quizzes.
   const demo = query?.get("demo") === "1";
   // Battles started from a Greenhouse in Garden mode lead back to town.
   const fromGarden = query?.get("from") === "garden";
+  // ?keeper=1: a Greenhouse keeper's challenge. ?back= is the building to step out of afterwards.
+  const keeper = query?.get("keeper") === "1";
+  const back = query?.get("back");
   const game = useGame();
   const [round, setRound] = useState(0);
   if (!game?.ready) {
@@ -389,7 +428,8 @@ export default function BattleScreen({ profile, metrics, go, navigate, query, se
       given={round === 0 ? setup : undefined}
       demo={demo}
       fromGarden={fromGarden}
-      onExit={() => (demo ? navigate("/") : go(fromGarden ? "garden" : "quiz"))}
+      keeper={keeper}
+      onExit={() => (demo ? navigate("/") : go(fromGarden ? (back ? `garden?from=${back}` : "garden") : "quiz"))}
       onAgain={() => setRound((r) => r + 1)}
       onSignUp={() => navigate("/signup")}
     />
