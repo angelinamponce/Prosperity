@@ -7,6 +7,8 @@ import { DEX } from "../game/dex";
 import { gradeBreakdown } from "../dashboard/finance";
 import { debtFreeSummary } from "../dashboard/summaries";
 import { FOES } from "../battle/foes";
+import { BANK } from "../quiz/bank";
+import { GOT_DOWN_BOX, quizStats } from "../quiz/stats";
 import { HandheldFrame } from "./HandheldFrame";
 import { TextBox } from "./TextBox";
 import { ListMenu } from "./ListMenu";
@@ -35,6 +37,7 @@ export default function CardScene({ profile, metrics, plan, go, query }) {
   const friends = FOES.filter((f) => p.quiz.befriended[f.id]).length;
   const earned = BADGES.filter((b) => p.badges[b.id]);
   const nextBadge = BADGES.find((b) => !p.badges[b.id]);
+  const qs = quizStats(BANK, p.quiz);
   const debtLine = !debt.hasDebt ? "No debt" : debt.plan.date ? `${debt.plan.date}` : "Not set yet";
 
   const TEXT = {
@@ -46,6 +49,7 @@ export default function CardScene({ profile, metrics, plan, go, query }) {
       : `${debt.plan.date ? `Debt-free by ${debt.plan.date} on your saved plan (${money(plan.extraDebt)} extra a month), the same plan the Debt page uses.` : `On your saved plan (${money(plan.extraDebt)} extra a month), there's no debt-free date yet.`} ${debt.sentence}`,
     streak: `${streakNow} ${streakNow === 1 ? "week" : "weeks"} in a row right now, best ${p.streak.best}. Weeks don't need to be perfect: ${p.streak.freezes} streak ${p.streak.freezes === 1 ? "freeze covers" : "freezes cover"} a quiet week.`,
     dex: `${planted} of ${DEX.length} money words planted in the Garden Dex, and ${friends} of ${FOES.length} Misconceptions befriended.`,
+    quiz: `${qs.tried} of ${qs.total} quiz questions tried and ${qs.gotDown} got down (right ${GOT_DOWN_BOX} times in a row, with a longer rest each time). ${qs.topics.map((t) => `${t.topic}: ${t.answers ? `${t.correct} of ${t.answers} right` : "not tried yet"}`).join("; ")}.`,
     badges: `${earned.length} of ${BADGES.length} badges.${nextBadge ? ` A next one to try: ${nextBadge.name}. ${nextBadge.how}` : " You've earned them all!"}`,
   };
 
@@ -67,6 +71,7 @@ export default function CardScene({ profile, metrics, plan, go, query }) {
             <div><dt>Debt-free</dt><dd>{debtLine}</dd></div>
             <div><dt>Streak</dt><dd>{streakNow} {streakNow === 1 ? "week" : "weeks"}</dd></div>
             <div><dt>Dex</dt><dd>{planted}/{DEX.length} · {friends}/{FOES.length} friends</dd></div>
+            <div><dt>Quiz</dt><dd>{qs.gotDown}/{qs.total} got down</dd></div>
           </dl>
         </div>
         <ul className="gc__badges" aria-label={`Badges: ${earned.length} of ${BADGES.length} earned`}>
@@ -97,6 +102,7 @@ export default function CardScene({ profile, metrics, plan, go, query }) {
           { key: "streak", label: "Streak", sub: `Best ${p.streak.best}` },
           { key: "dex", label: "Garden Dex", sub: `${planted} planted · ${friends} befriended` },
           { key: "badges", label: "Badges", sub: `${earned.length} of ${BADGES.length}` },
+          { key: "quiz", label: "Quiz stats", sub: `${qs.gotDown} got down · ${qs.tried} tried` },
         ]}
         onSelect={setShown}
       />

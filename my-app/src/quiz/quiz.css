@@ -104,3 +104,10 @@
 .qz-keeper.is-earned { color: var(--ps-brand-700); font-weight: 600; }
 .qz-keeper .ps-stage { flex-shrink: 0; }
 .qz-keeper:not(.is-earned) .ps-stage { opacity: 0.55; filter: grayscale(0.6); }
+
+/* Your quiz stats */
+.qz-stats { margin-top: var(--ps-space-4); }
+.qz-stats__table { width: 100%; border-collapse: collapse; margin-bottom: var(--ps-space-2); font-size: var(--ps-text-sm); }
+.qz-stats__table th, .qz-stats__table td { padding: 8px 10px; border-bottom: 1px solid var(--ps-border); text-align: left; }
+.qz-stats__table thead th { color: var(--ps-text-muted); font-weight: 600; }
+.qz-stats__table td { font-variant-numeric: tabular-nums; }

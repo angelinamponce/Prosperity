@@ -362,6 +362,7 @@ function Battle({ game, profile, metrics, query, given, demo, keeper, fromGarden
           onBack={() => setPaused(true)}
         />
         <p className="bt-note">
+          {q.numbers ? (q.example ? "Example numbers. " : profile.fromSurvey ? "Uses your numbers. " : "Uses sample numbers. ") : ""}
           {preview.due
             ? `Worth ${preview.xp} XP${helped ? ` (full: ${preview.full})` : ""}. Help is free; it just lowers this to 75%, or 50% with both.`
             : "You answered this one recently, so no XP this time. It still counts as practice!"}

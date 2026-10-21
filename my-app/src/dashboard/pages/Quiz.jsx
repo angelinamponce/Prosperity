@@ -5,6 +5,7 @@ import { ASSIST_SHARE, KEEPER, QUIZ_TOPICS, XP, answerXpPreview, useGame } from 
 import { KEEPERS, keeperStatus, keeperVerdict } from "../../game/keepers";
 import { BANK } from "../../quiz/bank";
 import { DIFFICULTY, TOPICS } from "../../quiz/topics";
+import { GOT_DOWN_BOX, quizStats } from "../../quiz/stats";
 import { dueCounts, seededRandom, selectQuestions } from "../../quiz/select";
 import { answer, assistsFor, askSprout, currentQuestion, next, resolveQuestion, startSession, summary, takeHint } from "../../quiz/session";
 import { SproutMascot } from "../../sprout";
@@ -56,6 +57,7 @@ function TopicMenu({ progress, onStart, onBattle }) {
           );
         })}
       </ul>
+      <QuizStats quiz={quiz} />
     </>
   );
 }
@@ -74,10 +76,47 @@ function KeeperLine({ topic, status }) {
   );
 }
 
+/** Your quiz stats: how often you're right, what you've got down, and what's ready to practice. */
+function QuizStats({ quiz }) {
+  const s = quizStats(BANK, quiz);
+  const next = s.nextReview ? new Date(s.nextReview).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : null;
+  return (
+    <Card className="ps-enter qz-stats" style={{ "--i": 5 }} title="Your quiz stats" subtitle={`${s.tried} of ${s.total} questions tried · ${s.gotDown} got down`}>
+      <table className="qz-stats__table">
+        <caption className="ps-sr-only">Quiz stats by topic</caption>
+        <thead>
+          <tr><th scope="col">Topic</th><th scope="col">Answered right</th><th scope="col">Got down</th><th scope="col">Ready now</th></tr>
+        </thead>
+        <tbody>
+          {s.topics.map((t) => (
+            <tr key={t.topic}>
+              <th scope="row">{TOPICS[t.topic].label}</th>
+              <td>{t.answers ? `${t.correct} of ${t.answers} (${Math.round(t.accuracy * 100)}%)` : "Not tried yet"}</td>
+              <td>{t.gotDown} of {t.total}</td>
+              <td>{t.dueNow + t.fresh}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="ps-small">
+        “Got down” means answered right {GOT_DOWN_BOX} times in a row, with a longer rest before each review. Missed questions come back sooner, and that's how they stick.
+        {next ? ` Your next review opens ${next}.` : ""}
+      </p>
+    </Card>
+  );
+}
+
 function XpTag({ preview, assists }) {
   if (!preview.due) return <Badge className="qz-xp">Answered recently · no XP this time</Badge>;
   const helped = assists.hint || assists.sprout;
   return <Badge tone="brand" className="qz-xp">Worth {preview.xp} XP{helped ? ` (full: ${preview.full})` : ""}</Badge>;
+}
+
+/** The tag on a question built from numbers: whose numbers they are. */
+function numbersTag(q, fromSurvey) {
+  if (!q.numbers) return null;
+  if (q.example) return "Example numbers";
+  return fromSurvey ? "Uses your numbers" : "Uses sample numbers";
 }
 
 function numbersSource(q, fromSurvey) {
@@ -127,6 +166,7 @@ function QuestionView({ session, setSession, game, profile, onLeave, onEarn }) {
         <div className="qz-meta__tags">
           <Badge>{TOPICS[q.topic].label}</Badge>
           <Badge>{DIFFICULTY[q.difficulty]}</Badge>
+          {numbersTag(q, profile.fromSurvey) && <Badge>{numbersTag(q, profile.fromSurvey)}</Badge>}
           <XpTag preview={preview} assists={assists} />
         </div>
       </div>

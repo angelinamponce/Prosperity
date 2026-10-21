@@ -19,9 +19,11 @@ const PROFILES = {
 };
 
 describe("question bank", () => {
-  test("has about 40 questions, 10 per topic", () => {
-    expect(BANK).toHaveLength(40);
-    for (const t of QUIZ_TOPICS) expect(BANK.filter((q) => q.topic === t)).toHaveLength(10);
+  test("has 48 questions, 12 per topic, 13 of them built from the player's own numbers", () => {
+    expect(BANK).toHaveLength(48);
+    for (const t of QUIZ_TOPICS) expect(BANK.filter((q) => q.topic === t)).toHaveLength(12);
+    expect(BANK.filter((q) => q.template)).toHaveLength(13);
+    for (const t of QUIZ_TOPICS) expect(BANK.filter((q) => q.topic === t && q.template).length).toBeGreaterThanOrEqual(2);
     expect(Object.keys(TOPICS).sort()).toEqual([...QUIZ_TOPICS].sort());
   });
 
