@@ -27,6 +27,7 @@ const DexScene = lazy(() => import("./DexScene"));
 const KeeperScene = lazy(() => import("./KeeperScene"));
 const CardScene = lazy(() => import("./CardScene"));
 const MissionsScene = lazy(() => import("./MissionsScene"));
+const DebtScene = lazy(() => import("./DebtScene"));
 // ?scene= -> the scene and what to say while it loads.
 const SCENES = {
   plot: [GardenScene, "Opening your garden…"],
@@ -34,6 +35,7 @@ const SCENES = {
   keeper: [KeeperScene, "Opening the greenhouse…"],
   card: [CardScene, "Getting your card…"],
   missions: [MissionsScene, "Getting your missions…"],
+  debt: [DebtScene, "Opening the Toolshed…"],
 };
 
 // The "Go to..." list doesn't change while Sprout walks, so it skips those re-renders.

@@ -343,6 +343,17 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
   ) : (
     <div className="gw-panel" ref={bottomRef}>
       <TextBox key={messageText} text={messageText} speaker={message.speaker} font={message.font} instant={instant || message.instant} announce={!message.instant} />
+      {message.key?.startsWith("weeds:") && (
+        <div className="gs-face">
+          <button
+            type="button"
+            className="gs-btn"
+            onClick={() => go(`garden?scene=debt&debt=${encodeURIComponent(garden.byId.weeds.weeds[Number(message.key.split(":")[1])].name)}&return=${encodeURIComponent("garden?scene=plot")}`)}
+          >
+            Face this debt
+          </button>
+        </div>
+      )}
       <HarvestClock season={garden.byId.season} plan={plan} wi={wi} saved={saved} onTry={onTry} onSave={onSave} onReset={onReset} status={status} />
       {!profile.fromSurvey && <p className="gs-sample">These are sample numbers. Finish the survey to grow your own garden.</p>}
       <p className="gw-where">

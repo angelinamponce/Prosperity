@@ -203,6 +203,9 @@ export function emptyProgress() {
     quiz: { q: {}, topics: {}, befriended: {}, keepers: {} },
     // missions[id] = { done, at, xp }: xp is what this mission currently holds (0 or XP.mission).
     missions: {},
+    // Debts seen in the player's own survey numbers (never the sample), and the ones since paid off.
+    // Only a debt that really reaches $0 in the survey gets a victory; nothing here is ever invented.
+    debts: { seen: {}, cleared: {} },
     // Classic is the default view; Garden mode arrives in a later phase.
     settings: { view: "classic", sound: false, instantText: false, speedRound: false, encounters: true },
   };
@@ -222,6 +225,7 @@ export function normalizeProgress(raw) {
     streak: { ...base.streak, ...obj(raw.streak, {}) },
     quiz: Object.fromEntries(Object.keys(base.quiz).map((k) => [k, obj(obj(raw.quiz, {})[k], {})])),
     missions: obj(raw.missions, {}),
+    debts: { seen: obj(obj(raw.debts, {}).seen, {}), cleared: obj(obj(raw.debts, {}).cleared, {}) },
     settings: { ...base.settings, ...obj(raw.settings, {}) },
   };
 }
@@ -231,6 +235,7 @@ export function normalizeProgress(raw) {
  * Actions: { type: "learnTerm", key, title } | { type: "checkIn", week } | { type: "surveyDone" } | { type: "tourDone" }
  *        | { type: "answerQuestion", id, topic, difficulty, correct, assists: { hint, sprout }, term?, termTitle? }
  *        | { type: "befriend", id, name } | { type: "keeperResult", topic, firstTry, total }
+ *        | { type: "noteDebts", names } | { type: "debtCleared", name }
  *        | { type: "completeMission", id, title } | { type: "undoMission", id }
  * Repeating an action never awards XP twice. ctx.termKeys lists the dashboard's money words.
  */
@@ -287,6 +292,21 @@ export function reduce(progress, action, ctx = { termKeys: [] }) {
       const next = { best: Math.max(prev.best, action.firstTry), tries: prev.tries + 1, passedAt: prev.passedAt ?? (passed ? at : null), last: action.firstTry };
       p = { ...p, quiz: { ...p.quiz, keepers: { ...p.quiz.keepers, [action.topic]: next } } };
       events.push({ type: "keeperResult", topic: action.topic, passed, firstTime: passed && !prev.passedAt });
+      break;
+    }
+    case "noteDebts": {
+      // Remembers each survey debt the first time it's seen. No XP: money never earns XP.
+      const fresh = action.names.filter((n) => !p.debts.seen[n]);
+      if (!fresh.length) break;
+      const at = action.at ?? Date.now();
+      p = { ...p, debts: { ...p.debts, seen: { ...p.debts.seen, ...Object.fromEntries(fresh.map((n) => [n, at])) } } };
+      break;
+    }
+    case "debtCleared": {
+      // A debt the survey now shows at $0. Celebrated once; no XP, because XP never rewards dollar amounts.
+      if (!p.debts.seen[action.name] || p.debts.cleared[action.name]) break;
+      p = { ...p, debts: { ...p.debts, cleared: { ...p.debts.cleared, [action.name]: action.at ?? Date.now() } } };
+      events.push({ type: "debtCleared", name: action.name });
       break;
     }
     case "befriend": {

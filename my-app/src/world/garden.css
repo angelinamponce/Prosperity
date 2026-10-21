@@ -171,11 +171,14 @@
 .gs-all dt { font-weight: 600; }
 .gs-all dd { margin: 0; }
 
+/* "Face this debt" under a weed patch's numbers. */
+.gs-face { display: flex; }
+
 /* The what-if slider lives inside the Harvest Festival card. */
 .gs-whatif { margin-top: 6px; padding-top: 6px; border-top: 2px dotted var(--px-frame); }
 .gs-whatif .ps-slider { gap: 2px; }
 .gs-whatif .ps-label { font-family: var(--px-font); font-size: 0.86rem; color: var(--px-ink); }
-.gs-whatif__tag { display: inline-block; margin: 4px 0 0; padding: 0 8px; border: 2px dashed var(--px-frame); border-radius: 999px; font-size: 0.72rem; color: var(--px-ink); }
+.gs-whatif__tag { align-self: flex-start; display: inline-block; margin: 4px 0 0; padding: 0 8px; border: 2px dashed var(--px-frame); border-radius: 999px; font-size: 0.72rem; color: var(--px-ink); }
 .gs-whatif__result { margin: 4px 0 0; font-family: var(--ps-font); font-size: 0.8rem; line-height: 1.4; color: var(--px-ink); }
 .gs-whatif__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .gs-whatif__status { margin: 4px 0 0; font-family: var(--ps-font); font-size: 0.78rem; color: var(--ps-brand-700); }

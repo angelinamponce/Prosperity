@@ -1,0 +1,7 @@
+/* The debt battle reuses the quiz battle's stage; these are its extras. */
+
+/* A real payoff: falling leaves (left out with reduced motion). */
+.db-leaves { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.db-leaves span { position: absolute; top: -6%; left: calc(4% + var(--i) * 6.8%); width: 1.6cqw; height: 1.6cqw; background: var(--ps-brand-400); border-radius: 0 60% 0 60%; animation: db-fall 2.4s linear infinite; animation-delay: calc(var(--i) * -0.17s); }
+.db-leaves span:nth-child(3n) { background: var(--px-flower); }
+@keyframes db-fall { to { transform: translateY(110cqh) rotate(300deg); } }
