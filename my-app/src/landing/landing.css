@@ -28,38 +28,83 @@
 .lp-nav__toggle { display: none; margin-left: auto; width: 40px; padding: 0; font-size: 18px; }
 .lp-nav__sheet { display: none; }
 
-/* ---------- Hero ---------- */
+/* ---------- Hero: a garden backdrop with the copy and the plan card on top ---------- */
 .lp-hero {
+  --lp-meadow: 112px; /* the pixel meadow band along the bottom */
+  --lp-hills: 300px;  /* the rolling hills behind it */
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100svh - 68px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--ps-space-8) 0 calc(var(--lp-meadow) + var(--ps-space-6));
+  overflow: hidden;
+  background: linear-gradient(180deg, var(--art-sky-top) 0%, var(--art-sky-bottom) 62%);
+}
+.lp-hero__inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--ps-space-10) var(--ps-space-6) 48px;
+  padding: 0 var(--ps-space-6);
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
   gap: 64px;
   align-items: center;
 }
-.lp-hero__title { margin-top: var(--ps-space-5); font-family: var(--ps-font-display); font-size: clamp(3rem, 6vw, 4.75rem); font-weight: 400; letter-spacing: -0.015em; line-height: 1.02; }
+.lp-hero__title { font-family: var(--ps-font-display); font-size: clamp(2.75rem, 6vw, 4.75rem); font-weight: 400; letter-spacing: -0.015em; line-height: 1.02; }
 .lp-accent { font-style: italic; color: var(--ps-brand-600); background: linear-gradient(120deg, var(--ps-brand-500), var(--ps-brand-700)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; padding-right: 0.06em; }
 .lp-hero__lede { margin-top: var(--ps-space-5); max-width: 500px; font-size: 1.125rem; line-height: 1.6; color: var(--ps-ink-2); }
 .lp-hero__ctas { margin-top: var(--ps-space-8); display: flex; flex-wrap: wrap; gap: var(--ps-space-3); }
-/* Trust badges */
-.lp-trust { list-style: none; margin: var(--ps-space-8) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ps-space-2); }
-.lp-trust li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--ps-radius-full); border: 1px solid var(--ps-brand-200); background: var(--ps-surface); font-size: var(--ps-text-sm); font-weight: 500; color: var(--ps-ink-2); }
+/* Trust: one slim row of small inline checks. */
+.lp-trust { list-style: none; margin: var(--ps-space-6) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ps-space-2) var(--ps-space-5); }
+.lp-trust li { display: inline-flex; align-items: center; gap: 6px; font-size: var(--ps-text-sm); font-weight: 500; color: var(--ps-ink-2); }
 .lp-trust .anticon { color: var(--ps-brand-600); }
 
-/* Sprout greeting in the hero */
-.lp-ask { margin-top: var(--ps-space-8); display: flex; align-items: flex-end; gap: var(--ps-space-4); max-width: 520px; }
-.lp-ask__body { display: flex; flex-direction: column; gap: var(--ps-space-3); min-width: 0; }
-.lp-ask__bubble {
+/* The garden behind the hero. Decorative only. */
+.lp-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.lp-sun { position: absolute; top: 9%; left: 46%; width: 72px; height: 72px; }
+.lp-sun__glow { fill: var(--px-sun); opacity: 0.18; }
+.lp-sun__disc { fill: var(--px-sun); opacity: 0.85; }
+.lp-cloud { position: absolute; fill: var(--art-cloud); }
+.lp-cloud--a { top: 7%; left: 6%; width: 120px; }
+.lp-cloud--b { top: 17%; left: 58%; width: 92px; opacity: 0.85; }
+.lp-cloud--c { top: 5%; right: 8%; width: 140px; opacity: 0.9; }
+.lp-hills { position: absolute; left: 0; right: 0; bottom: calc(var(--lp-meadow) - 24px); width: 100%; height: var(--lp-hills); }
+.lp-hill--far { fill: var(--art-hill-far); }
+.lp-hill--mid { fill: var(--art-hill-mid); }
+.lp-hill--near { fill: var(--art-hill-near); }
+.lp-path { fill: var(--art-path); opacity: 0.85; }
+.lp-meadow { position: absolute; left: 0; right: 0; bottom: 0; height: var(--lp-meadow); background: linear-gradient(180deg, var(--art-meadow), var(--art-meadow-deep)); }
+.lp-fence { position: absolute; left: 0; top: -14px; display: block; }
+.lp-fence__post { fill: var(--art-wood-dark); }
+.lp-fence__rail { fill: var(--art-wood); }
+.lp-meadow__plants { position: absolute; left: 0; right: 0; bottom: 18px; display: flex; justify-content: space-around; padding: 0 2%; }
+.lp-meadow__slot { display: block; line-height: 0; }
+.lp-meadow__slot svg { width: 48px; height: 48px; image-rendering: pixelated; }
+
+/* Sprout stands in the meadow, lower left, with one speech bubble. Tapping Sprout opens the chat. */
+.lp-sprout { position: absolute; z-index: 2; left: max(var(--ps-space-6), calc((100% - 1200px) / 2 + var(--ps-space-6))); bottom: 22px; display: flex; align-items: flex-end; gap: var(--ps-space-2); }
+.ps-root .lp-sprout__btn { display: block; padding: 4px; border: 0; border-radius: var(--ps-radius-md); background: transparent; line-height: 0; cursor: pointer; transition: transform var(--ps-fast) var(--ps-ease); }
+.lp-sprout__btn svg { width: 64px; height: 64px; image-rendering: pixelated; }
+.ps-root .lp-sprout__btn:hover { transform: translateY(-2px); }
+.ps-root .lp-sprout__btn:focus-visible { outline: 3px solid var(--ps-brand-700); outline-offset: 2px; background: rgba(255, 255, 255, 0.6); }
+.lp-sprout__bubble {
   position: relative;
-  padding: 10px 14px;
-  border-radius: 16px 16px 16px 4px;
+  margin-bottom: 40px;
+  max-width: 260px;
+  padding: 8px 12px;
+  border-radius: 14px 14px 14px 4px;
   background: var(--ps-surface);
   border: 1px solid var(--ps-border);
   box-shadow: var(--ps-shadow-sm);
   color: var(--ps-ink-2);
-  font-size: var(--ps-text-md);
+  font-size: var(--ps-text-sm);
+  line-height: 1.4;
 }
+.lp-about__tag { margin: var(--ps-space-2) 0 var(--ps-space-3); }
 
 /* Interactive preview: a sentence first, a garden, the slider, and the numbers one tap away. */
 .lp-preview__main { display: flex; flex-direction: column; gap: var(--ps-space-4); padding: var(--ps-space-6); box-shadow: var(--ps-shadow-lg); }
@@ -271,7 +316,12 @@
 /* ---------- Responsive ---------- */
 
 @media (max-width: 1024px) {
-  .lp-hero { grid-template-columns: minmax(0, 1fr); gap: 56px; padding-top: var(--ps-space-10); }
+  .lp-hero { min-height: 0; padding-top: var(--ps-space-10); }
+  /* Keep the sky behind the text plain: the sun and one cloud move to the open sky on the right. */
+  .lp-sun { left: auto; right: 6%; top: 3%; }
+  .lp-cloud--a, .lp-cloud--b { display: none; }
+  .lp-cloud--c { top: 9%; right: 2%; width: 110px; }
+  .lp-hero__inner { grid-template-columns: minmax(0, 1fr); gap: 48px; }
   .lp-preview { max-width: 620px; margin: 0 auto; }
   .lp-showcase { grid-template-columns: minmax(0, 1fr); }
   .lp-showcase__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -288,7 +338,14 @@
   .lp-nav.is-open .lp-nav__sheet { display: flex; flex-direction: column; gap: var(--ps-space-2); padding: var(--ps-space-2) var(--ps-space-4) var(--ps-space-5); animation: ps-enter 240ms var(--ps-ease) both; }
   .lp-nav__sheet a:not(.ps-btn) { padding: 12px 4px; font-size: var(--ps-text-lg); font-weight: 500; color: var(--ps-ink); border-bottom: 1px solid var(--ps-border); }
   .lp-nav__sheet .ps-btn { margin-top: var(--ps-space-2); }
-  .lp-hero { padding: var(--ps-space-8) var(--ps-space-4) var(--ps-space-14); }
+  /* Phones: a shorter meadow and lower hills, so the garden never covers the CTA. */
+  .lp-hero { --lp-meadow: 92px; --lp-hills: 170px; padding: var(--ps-space-6) 0 calc(var(--lp-meadow) + var(--ps-space-10)); }
+  .lp-hero__inner { padding: 0 var(--ps-space-4); gap: 36px; }
+  .lp-meadow__slot:nth-child(n + 8) { display: none; }
+  .lp-meadow__slot svg { width: 40px; height: 40px; }
+  .lp-sun { right: 4%; top: 1%; width: 44px; height: 44px; }
+  .lp-cloud--c { display: none; }
+  .lp-sprout { left: var(--ps-space-4); bottom: 14px; }
   .lp-hero__ctas .ps-btn { flex: 1 1 100%; }
   .lp-preview__main { padding: var(--ps-space-5); }
   .lp-numbers__list { grid-template-columns: minmax(0, 1fr); }

@@ -131,6 +131,20 @@
   --px-shadow: rgba(20, 40, 25, 0.28);
   --px-sun: #f4cf55;          /* art only */
   --px-flower: #f08aa0;       /* art only */
+  /* Landing garden illustration (art only, never UI chrome). */
+  --art-sky-top: #d6eaf2;
+  --art-sky-bottom: var(--ps-bg-top);
+  --art-cloud: rgba(255, 255, 255, 0.92);
+  --art-hill-far: #dcebdf;
+  --art-hill-mid: #bfdcc6;
+  --art-hill-near: #9fcaa9;
+  --art-meadow: #8fc48e;
+  --art-meadow-deep: #79b37c;
+  --art-path: #e8d9b4;
+  --art-wood: #a07f52;
+  --art-wood-dark: #7a5c3b;
+  --art-coral: #f2a08a;
+  --art-lavender: #b9a3dc;
   --px-bar: var(--ps-brand-500);
   --px-bar-track: #d6e6d3;
 }

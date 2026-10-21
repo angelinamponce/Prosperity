@@ -1,19 +1,16 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRightOutlined,
   BulbOutlined,
-  CalculatorOutlined,
   CheckOutlined,
   CloseOutlined,
-  CommentOutlined,
   CreditCardOutlined,
   DownOutlined,
   FlagOutlined,
   FormOutlined,
   MenuOutlined,
   RiseOutlined,
-  SafetyOutlined,
   SwapOutlined,
 } from "@ant-design/icons";
 import {
@@ -39,7 +36,10 @@ import { XP } from "../game/rules";
 import { FoeSprite } from "../battle/sprites";
 import { FOES } from "../battle/foes";
 import Intro, { shouldPlayIntro } from "./Intro";
-import { SproutChat, SproutLauncher, SproutMascot, SproutProvider, SuggestedQuestions } from "../sprout";
+import { SproutChat, SproutLauncher, SproutMascot, SproutProvider, useSprout } from "../sprout";
+import { HeroBackdrop } from "./HeroBackdrop";
+import { PixelArt } from "../world/PixelArt";
+import { SPROUT_FRONT, SPROUT_PALETTE } from "../world/sprites";
 import "./landing.css";
 
 const profile = sampleProfile;
@@ -216,50 +216,77 @@ function HeroPreview() {
   );
 }
 
-const TRUST = [
-  { icon: <SafetyOutlined />, text: "No bank connection needed" },
-  { icon: <CalculatorOutlined />, text: "Advice that shows its work" },
-  { icon: <CommentOutlined />, text: "Plain English, no jargon" },
-];
+const TRUST = ["No bank connection needed", "Advice that shows its work", "Plain English, no jargon"];
 
-function Hero({ ready }) {
+/**
+ * Sprout, standing in the meadow: the page's one way into the chat while the hero is on screen.
+ * Reports whether it's visible so the floating chat button can wait until it scrolls away.
+ */
+function MeadowSprout({ onVisible }) {
+  const { open, setOpen, launcherRef } = useSprout();
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return undefined;
+    const io = new IntersectionObserver(([entry]) => onVisible(entry.isIntersecting), { threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [onVisible]);
+  return (
+    <div className="lp-sprout" ref={ref}>
+      <button
+        type="button"
+        className="lp-sprout__btn"
+        ref={(el) => {
+          // While it's on screen, the chat hands focus back here when it closes.
+          if (el) launcherRef.current = el;
+        }}
+        aria-label="Talk to Sprout, your money guide"
+        aria-expanded={open}
+        aria-controls="sprout-panel"
+        onClick={() => setOpen(!open)}
+      >
+        <PixelArt rows={SPROUT_FRONT} palette={SPROUT_PALETTE} size={64} />
+      </button>
+      <p className="lp-sprout__bubble">Hi, I'm Sprout! Let's take it one small step at a time.</p>
+    </div>
+  );
+}
+
+function Hero({ ready, onSproutVisible }) {
   return (
     <section className="lp-hero">
-      <div className="lp-hero__copy">
-        <Badge tone="brand" className="lp-enter" >Built at HackMIT 2025</Badge>
-        <h1 className="lp-hero__title lp-enter" style={{ "--i": 1 }}>
-          Your money,<br />
-          <span className="lp-accent">finally clear.</span>
-        </h1>
-        <p className="lp-hero__lede lp-enter" style={{ "--i": 2 }}>
-          Answer a short survey and Prosperity turns your numbers into a plan: where your money goes, the fastest way out of debt, and what your future could look like.
-        </p>
-        <div className="lp-hero__ctas lp-enter" style={{ "--i": 3 }}>
-          <Link to="/signup" className="ps-btn ps-btn--primary lp-btn-lg">
-            Plant your first seed <ArrowRightOutlined />
-          </Link>
-          <a href="#how-it-works" className="ps-btn ps-btn--secondary lp-btn-lg" onClick={(e) => scrollToId(e, "how-it-works")}>
-            See how it works
-          </a>
-        </div>
-        <ul className="lp-trust lp-enter" style={{ "--i": 4 }} aria-label="Why people trust Prosperity">
-          {TRUST.map((t) => (
-            <li key={t.text}><span aria-hidden>{t.icon}</span> {t.text}</li>
-          ))}
-        </ul>
-        <div className="lp-ask lp-enter" style={{ "--i": 5 }}>
-          <SproutMascot variant="full" size={68} mood="wave" />
-          <div className="lp-ask__body">
-            <p className="lp-ask__bubble">
-              Hi, I'm <strong>Sprout</strong>! Money stuff can feel like a lot. Let's take it one small step at a time.
-            </p>
-            <SuggestedQuestions questions={SPROUT_STARTERS.slice(0, 2)} label="Try asking Sprout about the sample plan" />
+      <HeroBackdrop />
+      <div className="lp-hero__inner">
+        <div className="lp-hero__copy">
+          <h1 className="lp-hero__title lp-enter" style={{ "--i": 1 }}>
+            Your money,<br />
+            <span className="lp-accent">finally clear.</span>
+          </h1>
+          <p className="lp-hero__lede lp-enter" style={{ "--i": 2 }}>
+            Answer a short survey and Prosperity turns your numbers into a plan: where your money goes, the fastest way out of debt, and what your future could look like.
+          </p>
+          <div className="lp-hero__ctas lp-enter" style={{ "--i": 3 }}>
+            <Link to="/signup" className="ps-btn ps-btn--primary lp-btn-lg">
+              Plant your first seed <ArrowRightOutlined />
+            </Link>
+            <a href="#how-it-works" className="ps-btn ps-btn--secondary lp-btn-lg" onClick={(e) => scrollToId(e, "how-it-works")}>
+              See how it works
+            </a>
           </div>
+          <ul className="lp-trust lp-enter" style={{ "--i": 4 }} aria-label="Why people trust Prosperity">
+            {TRUST.map((t) => (
+              <li key={t}>
+                <CheckOutlined aria-hidden /> {t}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="lp-enter" style={{ "--i": 2 }}>
+          <HeroPreview key={ready ? "ready" : "waiting"} />
         </div>
       </div>
-      <div className="lp-enter" style={{ "--i": 2 }}>
-        <HeroPreview key={ready ? "ready" : "waiting"} />
-      </div>
+      <MeadowSprout onVisible={onSproutVisible} />
     </section>
   );
 }
@@ -588,6 +615,7 @@ function About() {
     <section className="lp-section lp-about" id="about">
       <div className="ps-reveal">
         <p className="ps-eyebrow">About</p>
+        <Badge tone="brand" className="lp-about__tag">Built at HackMIT 2025</Badge>
         <h2 className="lp-h2">Built at HackMIT to make financial planning feel possible</h2>
         <p className="lp-section__lede" style={{ marginTop: 16 }}>
           Most money advice is generic. Prosperity starts from your own income, spending and goals, and turns them into clear charts and specific next steps.
@@ -627,13 +655,16 @@ export default function Landing() {
   const revealRef = useReveal();
   const logoRef = useRef(null);
   const [introPhase, setIntroPhase] = useState(() => (shouldPlayIntro() ? "playing" : "done"));
+  // One chat entry point at a time: the floating button waits until the meadow Sprout scrolls away.
+  const [sproutInView, setSproutInView] = useState(true);
+  const onSproutVisible = useCallback((v) => setSproutInView(v), []);
   return (
     <SproutProvider scope="landing" getContext={() => ({ profile, plan: DEMO_PLAN, demo: true })}>
       <div className="ps-root lp" ref={revealRef} data-intro={introPhase}>
         {introPhase !== "done" && <Intro phase={introPhase} onPhase={setIntroPhase} targetRef={logoRef} />}
         <Nav logoRef={logoRef} />
         <main>
-          <Hero ready={introPhase !== "playing"} />
+          <Hero ready={introPhase !== "playing"} onSproutVisible={onSproutVisible} />
           <Showcase />
           <HowItWorks />
           <About />
@@ -650,7 +681,7 @@ export default function Landing() {
             <Link to="/signup">Sign up</Link>
           </div>
         </footer>
-        {introPhase === "done" && <SproutLauncher greeting="Hi! I'm Sprout. Want to see how a plan works?" />}
+        {introPhase === "done" && !sproutInView && <SproutLauncher greeting="Hi! I'm Sprout. Want to see how a plan works?" />}
         <SproutChat starters={SPROUT_STARTERS} />
       </div>
     </SproutProvider>
