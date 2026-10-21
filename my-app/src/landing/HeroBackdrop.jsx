@@ -2,20 +2,38 @@ import { memo } from "react";
 import { ART, Tile } from "../world/gardenArt";
 
 // The landing hero's garden: a soft flat-vector sky and rolling hills, with a pixel-art meadow along
-// the bottom in the same style as Garden mode. Purely decorative (aria-hidden); the interactive parts
-// (Sprout, the slider card) sit on top of it. `growth` (0 to 1) is how far the meadow has grown.
+// the bottom in the same style as Garden mode. Purely decorative (aria-hidden); the slider card gives
+// the meadow's text alternative. `growth` (0 to 1) comes from the sample plan's extra payment: the
+// meadow is the garden that plan grows.
 
-// Meadow slots across the width: each grows from a seedling to a crop and then a flower as `growth`
-// rises, left to right, so every step of growth changes something.
 const SLOTS = 14;
 const COLORS = ["pink", "sun", "lilac", "white"];
 
-function slotArt(i, growth) {
-  const level = growth * SLOTS * 2 - i; // each slot takes two steps: crop, then bloom
-  if (level >= 1.5) return ART.FLOWERS[COLORS[i % COLORS.length]];
-  if (level >= 0.5) return ART.CROPS.good;
-  return ART.SEEDLING;
+/**
+ * What the meadow shows for a growth level: each slot goes seedling -> plant -> flower, left to right,
+ * so the meadow fills in steadily and is in full bloom only at the top of the slider. Butterflies visit as it fills in.
+ */
+export function meadowState(growth) {
+  const stages = Array.from({ length: SLOTS }, (_, i) => {
+    // Slot i becomes a plant halfway through its share and blooms at the end of it, so the last
+    // flower opens exactly at full growth.
+    const level = growth * SLOTS - i;
+    return level >= 1 ? 2 : level >= 0.5 ? 1 : 0; // 0 seedling, 1 plant, 2 flower
+  });
+  const blooms = stages.filter((s) => s === 2).length;
+  return {
+    stages,
+    grown: stages.filter((s) => s > 0).length,
+    blooms,
+    seedlings: stages.filter((s) => s === 0).length,
+    butterflies: growth >= 0.75 ? 2 : growth >= 0.35 ? 1 : 0,
+  };
 }
+
+// Colours step through the list so neighbours always differ, and the every-other-plant row on phones
+// still gets all four.
+const colorAt = (i) => COLORS[(i + Math.floor(i / 2)) % COLORS.length];
+const artFor = (stage, i) => (stage === 2 ? ART.FLOWERS[colorAt(i)] : stage === 1 ? ART.CROPS.good : ART.SEEDLING);
 
 /** One soft cloud. */
 const Cloud = ({ className }) => (
@@ -24,7 +42,43 @@ const Cloud = ({ className }) => (
   </svg>
 );
 
+/** The meadow strip on its own: the fence and a row of plants. Also used under the footer CTA. */
+export const Meadow = memo(function Meadow({ growth = 1, butterflies = 0, className = "" }) {
+  const m = meadowState(growth);
+  return (
+    <div className={`lp-meadow ${className}`} aria-hidden>
+      {/* A low wooden fence runs along the back of the meadow. */}
+      <svg className="lp-fence" width="100%" height="22">
+        <defs>
+          <pattern id={`lp-fence-${className || "hero"}`} width="36" height="22" patternUnits="userSpaceOnUse">
+            <rect x="2" y="2" width="6" height="20" className="lp-fence__post" />
+            <rect x="0" y="7" width="36" height="4" className="lp-fence__rail" />
+            <rect x="0" y="14" width="36" height="4" className="lp-fence__rail" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="22" fill={`url(#lp-fence-${className || "hero"})`} />
+      </svg>
+      <div className="lp-meadow__plants">
+        {m.stages.map((stage, i) => (
+          <span key={i} className={`lp-meadow__slot${stage === 2 ? " is-bloom" : ""}`} data-stage={stage} style={{ "--i": i }}>
+            {/* Keyed by stage, so a plant that grows pops in (and a new flower glows). */}
+            <span key={stage} className="lp-meadow__plant">
+              <Tile rows={artFor(stage, i)} size={48} />
+            </span>
+          </span>
+        ))}
+      </div>
+      {Array.from({ length: butterflies }, (_, i) => (
+        <span key={i} className={`lp-butterfly lp-butterfly--${i + 1}`}>
+          <Tile rows={ART.BUTTERFLY} size={32} />
+        </span>
+      ))}
+    </div>
+  );
+});
+
 export const HeroBackdrop = memo(function HeroBackdrop({ growth = 0.4 }) {
+  const m = meadowState(growth);
   return (
     <div className="lp-scene" aria-hidden>
       <svg className="lp-sun" viewBox="0 0 64 64">
@@ -41,26 +95,22 @@ export const HeroBackdrop = memo(function HeroBackdrop({ growth = 0.4 }) {
         <path className="lp-hill lp-hill--near" d="M0 220C260 190 480 200 760 232S1180 262 1440 214V300H0Z" />
         <path className="lp-path" d="M300 300C380 270 470 254 560 246 640 238 700 236 760 232 700 246 640 262 590 300Z" />
       </svg>
-      <div className="lp-meadow">
-        {/* A low wooden fence runs along the back of the meadow. */}
-        <svg className="lp-fence" width="100%" height="22">
-          <defs>
-            <pattern id="lp-fence" width="36" height="22" patternUnits="userSpaceOnUse">
-              <rect x="2" y="2" width="6" height="20" className="lp-fence__post" />
-              <rect x="0" y="7" width="36" height="4" className="lp-fence__rail" />
-              <rect x="0" y="14" width="36" height="4" className="lp-fence__rail" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="22" fill="url(#lp-fence)" />
-        </svg>
-        <div className="lp-meadow__plants">
-          {Array.from({ length: SLOTS }, (_, i) => (
-            <span key={i} className="lp-meadow__slot">
-              <Tile rows={slotArt(i, growth)} size={48} />
-            </span>
-          ))}
-        </div>
-      </div>
+      <Meadow growth={growth} butterflies={m.butterflies} />
     </div>
   );
 });
+
+/**
+ * A gentle hill edge between sections, so the garden carries on down the page. "meadow" rolls the
+ * hero's meadow down into the page; "up" rises into a softly tinted band; "down" rolls back out of it.
+ */
+export function HillDivider({ variant = "up" }) {
+  return (
+    <div className={`lp-divider lp-divider--${variant}`} aria-hidden>
+      <svg viewBox="0 0 1440 64" preserveAspectRatio="none">
+        <path className="lp-divider__far" d="M0 40C200 14 400 18 640 34S1080 58 1260 34 1400 22 1440 26V64H0Z" />
+        <path className="lp-divider__near" d="M0 52C260 38 520 44 780 54S1200 62 1440 48V64H0Z" />
+      </svg>
+    </div>
+  );
+}

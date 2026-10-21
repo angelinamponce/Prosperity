@@ -31,13 +31,12 @@ import { sampleProfile } from "../dashboard/sampleProfile";
 import { addMonths, buildRecommendations, computeMetrics, monteCarlo, simulatePayoff } from "../dashboard/finance";
 import { RecommendationList } from "../dashboard/components";
 import { debtFreeSummary, humanDuration } from "../dashboard/summaries";
-import HeroGarden from "./HeroGarden";
 import { XP } from "../game/rules";
 import { FoeSprite } from "../battle/sprites";
 import { FOES } from "../battle/foes";
 import Intro, { shouldPlayIntro } from "./Intro";
 import { SproutChat, SproutLauncher, SproutMascot, SproutProvider, useSprout } from "../sprout";
-import { HeroBackdrop } from "./HeroBackdrop";
+import { HeroBackdrop, HillDivider, Meadow, meadowState } from "./HeroBackdrop";
 import { PixelArt } from "../world/PixelArt";
 import { SPROUT_FRONT, SPROUT_PALETTE } from "../world/sprites";
 import "./landing.css";
@@ -140,9 +139,18 @@ function useSettledAnnouncement(text, delay = 800) {
   return spoken;
 }
 
-// One plain sentence first; the exact dates, interest and chart are one tap away.
-function HeroPreview() {
-  const [extra, setExtra] = useState(300);
+// How far the sample garden has grown for an extra payment: the share of the slider's possible time
+// savings it reaches (0 at $0 extra, 1 at the slider's maximum).
+const monthsAt = (extra) => simulatePayoff(profile.debts, { extra }).months;
+const ZERO_MONTHS = monthsAt(0);
+const MAX_SAVED = ZERO_MONTHS - monthsAt(SLIDER_MAX);
+function growthFor(extra) {
+  return Math.max(0, Math.min(1, (ZERO_MONTHS - monthsAt(extra)) / (MAX_SAVED || 1)));
+}
+
+// One plain sentence first; the exact dates, interest and chart are one tap away. The slider's value
+// is shared with the meadow behind the hero, which is the garden this plan grows.
+function HeroPreview({ extra, setExtra, growth }) {
   const [showNumbers, setShowNumbers] = useState(false);
   const numbersId = useId();
   const summary = useMemo(() => debtFreeSummary(profile.debts, { extra, now: NOW }), [extra]);
@@ -153,13 +161,10 @@ function HeroPreview() {
   const labels = Array.from({ length: len }, (_, i) => addMonths(NOW, i));
   const sooner = summary.monthsSooner ?? 0;
   const line = sproutLine(extra, sooner);
+  const meadow = meadowState(growth);
+  // A text alternative for the meadow, which is decorative art.
+  const gardenText = `A garden with ${meadow.grown} grown ${meadow.grown === 1 ? "plant" : "plants"}${meadow.blooms ? `, ${meadow.blooms} in bloom,` : ""} and ${meadow.seedlings} ${meadow.seedlings === 1 ? "seedling" : "seedlings"}, matching a ${money(extra)} monthly extra payment.`;
   const spoken = useSettledAnnouncement(`${summary.sentence} ${line.text}`);
-  // The patch shows the time the extra payment saves: bare seeds at $0 extra, fully grown at the slider's maximum.
-  const range = useMemo(
-    () => [0, SLIDER_MAX].map((e) => base.months - simulatePayoff(profile.debts, { extra: e }).months),
-    [base]
-  );
-  const growth = Math.max(0, Math.min(1, (sooner - range[0]) / (range[1] - range[0] || 1)));
 
   return (
     <div className="lp-preview">
@@ -169,8 +174,8 @@ function HeroPreview() {
           <span className="ps-small">{money(metrics.totalDebt)} of debt across {profile.debts.length} loans</span>
         </div>
         <p className="lp-preview__sentence">{summary.sentence}</p>
-        <HeroGarden growth={growth} />
         <Slider label="Extra payment each month" value={extra} min={0} max={SLIDER_MAX} step={25} format={money} onChange={setExtra} />
+        <p className="ps-sr-only">{gardenText}</p>
         <div className="lp-react">
           {/* Remounting on a new tier replays the cheer. */}
           <SproutMascot key={line.tier} variant="head" size={44} mood={line.mood} />
@@ -210,8 +215,8 @@ function HeroPreview() {
             </>
           )}
         </div>
+        <p className="ps-small lp-preview__note">Sample numbers, not yours. Drag the slider and watch the meadow grow.</p>
       </div>
-      <p className="ps-small lp-preview__note">Sample numbers, not yours. Drag the slider to try it.</p>
     </div>
   );
 }
@@ -228,7 +233,12 @@ function MeadowSprout({ onVisible }) {
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof IntersectionObserver === "undefined") return undefined;
-    const io = new IntersectionObserver(([entry]) => onVisible(entry.isIntersecting), { threshold: 0 });
+    // "Visible" until the visitor scrolls past it: on phones Sprout starts below the fold, and the
+    // floating button shouldn't show up before they've even reached the meadow. Stretching the area far
+    // below the screen means it only leaves by scrolling up past the top, even on a jump to a section.
+    const io = new IntersectionObserver(([entry]) => onVisible(entry.isIntersecting), {
+      rootMargin: "0px 0px 100000px 0px",
+    });
     io.observe(el);
     return () => io.disconnect();
   }, [onVisible]);
@@ -254,9 +264,11 @@ function MeadowSprout({ onVisible }) {
 }
 
 function Hero({ ready, onSproutVisible }) {
+  const [extra, setExtra] = useState(300);
+  const growth = useMemo(() => growthFor(extra), [extra]);
   return (
     <section className="lp-hero">
-      <HeroBackdrop />
+      <HeroBackdrop growth={growth} />
       <div className="lp-hero__inner">
         <div className="lp-hero__copy">
           <h1 className="lp-hero__title lp-enter" style={{ "--i": 1 }}>
@@ -283,7 +295,7 @@ function Hero({ ready, onSproutVisible }) {
           </ul>
         </div>
         <div className="lp-enter" style={{ "--i": 2 }}>
-          <HeroPreview key={ready ? "ready" : "waiting"} />
+          <HeroPreview key={ready ? "ready" : "waiting"} extra={extra} setExtra={setExtra} growth={growth} />
         </div>
       </div>
       <MeadowSprout onVisible={onSproutVisible} />
@@ -638,16 +650,20 @@ function About() {
 
 function CtaBand() {
   return (
-    <section className="lp-cta ps-reveal">
-      <span className="lp-cta__peek" aria-hidden>
-        <SproutMascot variant="head" size={72} mood="wave" />
-      </span>
-      <h2 className="lp-cta__title">Your garden is waiting</h2>
-      <p className="lp-cta__lede">Plant your first seed in a few minutes. You can change any answer later.</p>
-      <Link to="/signup" className="ps-btn lp-btn-lg lp-cta__btn">
-        Plant your first seed <ArrowRightOutlined />
-      </Link>
-    </section>
+    <div className="lp-cta-wrap">
+      <section className="lp-cta ps-reveal">
+        <span className="lp-cta__peek" aria-hidden>
+          <SproutMascot variant="head" size={72} mood="wave" />
+        </span>
+        <h2 className="lp-cta__title">Your garden is waiting</h2>
+        <p className="lp-cta__lede">Plant your first seed in a few minutes. You can change any answer later.</p>
+        <Link to="/signup" className="ps-btn lp-btn-lg lp-cta__btn">
+          Plant your first seed <ArrowRightOutlined />
+        </Link>
+      </section>
+      {/* The band sits on a fully grown meadow. */}
+      <Meadow growth={1} className="lp-meadow--cta" />
+    </div>
   );
 }
 
@@ -658,6 +674,12 @@ export default function Landing() {
   // One chat entry point at a time: the floating button waits until the meadow Sprout scrolls away.
   const [sproutInView, setSproutInView] = useState(true);
   const onSproutVisible = useCallback((v) => setSproutInView(v), []);
+  // The garden's gentle motion pauses while the tab is hidden.
+  useEffect(() => {
+    const sync = () => document.querySelector(".lp")?.classList.toggle("is-hidden", document.hidden);
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, []);
   return (
     <SproutProvider scope="landing" getContext={() => ({ profile, plan: DEMO_PLAN, demo: true })}>
       <div className="ps-root lp" ref={revealRef} data-intro={introPhase}>
@@ -665,8 +687,13 @@ export default function Landing() {
         <Nav logoRef={logoRef} />
         <main>
           <Hero ready={introPhase !== "playing"} onSproutVisible={onSproutVisible} />
+          <HillDivider variant="meadow" />
           <Showcase />
-          <HowItWorks />
+          <HillDivider variant="up" />
+          <div className="lp-band">
+            <HowItWorks />
+          </div>
+          <HillDivider variant="down" />
           <About />
           <CtaBand />
         </main>
