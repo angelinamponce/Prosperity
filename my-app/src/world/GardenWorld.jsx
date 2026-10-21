@@ -4,10 +4,11 @@ import { prefersReducedMotion } from "../design";
 import { useGame } from "../game/store";
 import { declined, grassStep, newEncounterState } from "../game/encounters";
 import { deriveGarden } from "../game/garden";
-import { gradeBreakdown } from "../dashboard/finance";
 import { GLOSSARY } from "../dashboard/glossary";
 import { layoutGarden } from "./gardenMap";
 import { PlotMiniature } from "./PlotMiniature";
+import { StartButton, StartMenu, useStartMenu } from "./StartMenu";
+import { buildRecommendations, gradeBreakdown } from "../dashboard/finance";
 import { HandheldFrame } from "./HandheldFrame";
 import { TextBox } from "./TextBox";
 import { ListMenu } from "./ListMenu";
@@ -19,12 +20,21 @@ import { WalkControls } from "./DPad";
 import { WorldMap, useBox, useStable } from "./WorldMap";
 import "./garden.css";
 
-// Each scene loads only when someone walks in: the plot, the Library (Dex), or a Greenhouse (keeper).
+// Each scene loads only when it's opened: the plot, the Library (Dex), a Greenhouse (keeper), or the
+// Start menu's Gardener Card and Missions.
 const GardenScene = lazy(() => import("./GardenScene"));
 const DexScene = lazy(() => import("./DexScene"));
 const KeeperScene = lazy(() => import("./KeeperScene"));
+const CardScene = lazy(() => import("./CardScene"));
+const MissionsScene = lazy(() => import("./MissionsScene"));
 // ?scene= -> the scene and what to say while it loads.
-const SCENES = { plot: [GardenScene, "Opening your garden…"], dex: [DexScene, "Opening the Garden Dex…"], keeper: [KeeperScene, "Opening the greenhouse…"] };
+const SCENES = {
+  plot: [GardenScene, "Opening your garden…"],
+  dex: [DexScene, "Opening the Garden Dex…"],
+  keeper: [KeeperScene, "Opening the greenhouse…"],
+  card: [CardScene, "Getting your card…"],
+  missions: [MissionsScene, "Getting your missions…"],
+};
 
 // The "Go to..." list doesn't change while Sprout walks, so it skips those re-renders.
 const GoToList = memo(ListMenu);
@@ -95,6 +105,11 @@ function TownScene({ go, from, profile, metrics, plan }) {
     [profile, metrics, plan, learned]
   );
   const layout = useMemo(() => layoutGarden(garden), [garden]);
+  const missionsLeft = useMemo(
+    () => (game?.ready ? buildRecommendations(profile, metrics, plan).filter((r) => r.habit && !game.progress.missions[r.id]?.done).length : 0),
+    [profile, metrics, plan, game?.ready, game?.progress.missions]
+  );
+  const start = useStartMenu();
   const [bottomRef, bottom] = useBox();
   const instant = Boolean(game?.progress.settings.instantText) || Boolean(prefersReducedMotion());
   const reduced = Boolean(prefersReducedMotion());
@@ -201,7 +216,10 @@ function TownScene({ go, from, profile, metrics, plan }) {
     </WorldMap>
   );
 
-  const bottomScreen = (
+  const here = `at-${walker.posRef.current.x}-${walker.posRef.current.y}`;
+  const bottomScreen = start.open ? (
+    <StartMenu go={go} onClose={start.close} returnTo={`garden?from=${here}`} battleBack={here} missionsLeft={missionsLeft} />
+  ) : (
     <div className="gw-panel" ref={bottomRef}>
       <TextBox key={message.text} text={message.text} speaker={message.speaker} font={message.font} instant={instant} />
       {rustle && (
@@ -231,7 +249,12 @@ function TownScene({ go, from, profile, metrics, plan }) {
       bottomLabel="Town guide"
       top={top}
       bottom={bottomScreen}
-      toolbar={<ClassicViewButton go={go} onLeave={walker.stop} />}
+      toolbar={
+        <>
+          <StartButton open={start.open} onToggle={() => { walker.stop(); start.toggle(); }} />
+          <ClassicViewButton go={go} onLeave={walker.stop} />
+        </>
+      }
     />
   );
 }

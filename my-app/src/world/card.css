@@ -1,0 +1,42 @@
+/* The Gardener Card: a trainer-card-style summary, sage and paper like the rest of the handheld. */
+.gc-wrap { position: absolute; inset: 0; display: grid; place-items: center; padding: 8px; background: linear-gradient(160deg, #d9efe2, #bcdcc6); }
+.gc { width: min(100%, 520px); max-height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 6px; padding: 8px 10px 10px; border: 3px solid var(--px-frame); border-radius: 12px; background: var(--px-paper); box-shadow: 0 3px 0 rgba(20, 40, 25, 0.2); overflow: hidden; }
+.gc__band { display: flex; justify-content: space-between; margin: -8px -10px 0; padding: 3px 10px; background: var(--ps-brand-700); color: #ffffff; font-family: var(--px-font); font-size: 0.82rem; letter-spacing: 0.04em; }
+.gc__body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; min-height: 0; }
+.gc__portrait { display: grid; place-items: center; width: 76px; height: 76px; border: 2px solid var(--px-frame); border-radius: 50%; background: radial-gradient(circle at 50% 60%, #cfe9c0, #a9d48f); }
+.gc__portrait svg { width: 64px; height: 64px; image-rendering: pixelated; }
+.gc__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; margin: 0; }
+.gc__stats div { display: flex; justify-content: space-between; gap: 6px; padding: 1px 0; border-bottom: 1px dotted var(--px-frame-light); }
+.gc__stats dt { font-family: var(--px-font); font-size: 0.72rem; color: var(--px-ink-2); }
+.gc__stats dd { margin: 0; font-family: var(--ps-font); font-size: 0.76rem; font-weight: 600; color: var(--px-ink); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc__badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin: 0; padding: 4px 0 0; border-top: 2px solid var(--px-frame-light); list-style: none; }
+.gc__badges li { position: relative; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--px-frame-light); border-radius: 50%; background: var(--ps-brand-50); }
+/* Not earned yet: faded, with a lock (the shape says it, not just the color). */
+.gc__badges li:not(.is-earned) { background: #f1f1ec; }
+.gc__badges li:not(.is-earned) .ps-stage { opacity: 0.35; filter: grayscale(1); }
+.gc__lock { position: absolute; right: -3px; bottom: -3px; padding: 1px; border-radius: 50%; background: var(--px-paper); color: var(--px-ink-2); font-size: 9px; }
+.gw-start-note { font-family: var(--ps-font); font-size: 0.78rem; line-height: 1.4; color: var(--px-ink-2); }
+.gw-start-note a { color: var(--ps-brand-700); text-decoration: underline; }
+
+@media (max-width: 700px) {
+  .gc { padding: 6px 8px 8px; gap: 4px; }
+  .gc__band { margin: -6px -8px 0; padding: 2px 8px; font-size: 0.74rem; }
+  .gc__portrait { width: 52px; height: 52px; }
+  .gc__portrait svg { width: 44px; height: 44px; }
+  .gc__stats { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .gc__stats dt { font-size: 0.64rem; }
+  .gc__stats dd { font-size: 0.68rem; }
+  .gc__badges li { width: 22px; height: 22px; }
+  .gc__badges .ps-stage { width: 18px; height: 18px; }
+}
+
+/* The quest board: a wooden board with today's quest pinned to it. */
+.mq-wrap { position: absolute; inset: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; place-items: center; gap: 6px; padding: 10px; background: linear-gradient(180deg, #cfe9f1 0 60%, #9fd07f 60% 100%); }
+.mq-board { display: grid; place-items: center; width: min(92%, 420px); height: 100%; max-height: 220px; padding: 12px; border: 3px solid #4a3a28; border-radius: 6px; background: repeating-linear-gradient(0deg, #a07f52 0 14px, #8b6a45 14px 16px); box-shadow: 0 4px 0 #4a3a28; }
+.mq-note { position: relative; max-width: 100%; padding: 10px 14px; border: 2px solid var(--px-frame); background: #fbfbf5; transform: rotate(-1.5deg); text-align: center; }
+.mq-note::before { content: ""; position: absolute; top: -6px; left: 50%; width: 10px; height: 10px; margin-left: -5px; border: 2px solid var(--px-frame); border-radius: 50%; background: var(--ps-brand-600); }
+.mq-note__eyebrow { font-family: var(--px-font); font-size: 0.72rem; color: var(--px-ink-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.mq-note__title { font-family: var(--px-font); font-size: 0.98rem; color: var(--px-ink); }
+.mq-note__meta { font-family: var(--ps-font); font-size: 0.78rem; color: var(--px-ink-2); }
+.mq-count { padding: 2px 10px; border: 2px solid var(--px-frame); border-radius: 8px; background: var(--px-paper); font-family: var(--px-font); font-size: 0.82rem; color: var(--px-ink); }
+.px-root a.gs-btn { display: inline-flex; align-items: center; text-decoration: none; }

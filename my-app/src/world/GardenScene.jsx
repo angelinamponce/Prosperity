@@ -14,6 +14,7 @@ import { useWalker } from "./useWalker";
 import { WalkControls } from "./DPad";
 import { WorldMap, useBox, useStable } from "./WorldMap";
 import { ClassicViewButton } from "./GardenWorld";
+import { StartButton, StartMenu, useStartMenu } from "./StartMenu";
 import { BEDS, BORDER, GARDEN, GARDEN_SPAWN, GATE, GREENHOUSE, SIGN, VISITOR_SPOT, elementAt, layoutGarden } from "./gardenMap";
 import { ART, GreenhouseArt, Tile } from "./gardenArt";
 
@@ -242,6 +243,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
     [profile, metrics, plan, healthScore, learned]
   );
   const layout = useMemo(() => layoutGarden(garden), [garden]);
+  const start = useStartMenu();
 
   // The what-if starts at the saved plan and is forgotten when you leave the garden.
   const [extra, setExtra] = useState(plan.extraDebt);
@@ -336,7 +338,9 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
     </WorldMap>
   );
 
-  const bottomScreen = (
+  const bottomScreen = start.open ? (
+    <StartMenu go={go} onClose={start.close} returnTo="garden?scene=plot" battleBack="plot" />
+  ) : (
     <div className="gw-panel" ref={bottomRef}>
       <TextBox key={messageText} text={messageText} speaker={message.speaker} font={message.font} instant={instant || message.instant} announce={!message.instant} />
       <HarvestClock season={garden.byId.season} plan={plan} wi={wi} saved={saved} onTry={onTry} onSave={onSave} onReset={onReset} status={status} />
@@ -371,6 +375,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
       bottom={bottomScreen}
       toolbar={
         <>
+          <StartButton open={start.open} onToggle={() => { walker.stop(); start.toggle(); }} />
           <button type="button" className="hh-btn" onClick={() => { walker.stop(); toTown(); }}>
             <HomeOutlined aria-hidden /> Back to town
           </button>
