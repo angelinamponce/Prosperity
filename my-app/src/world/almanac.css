@@ -1,0 +1,10 @@
+/* The Garden Almanac: one small card with arrows, in the touch screen's paper-and-sage style. */
+.al { flex-shrink: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: stretch; gap: 6px; padding: 6px; border: 2px solid var(--px-frame); border-radius: 10px; background: var(--px-paper-2); }
+.px-root .al__flip { display: grid; place-items: center; width: 36px; min-height: 44px; border: 2px solid var(--px-frame); border-radius: 8px; background: var(--px-paper); color: var(--px-ink); cursor: pointer; }
+.px-root .al__flip:active { transform: translateY(1px); }
+.al__card { min-width: 0; padding: 2px 4px; }
+.al__label { font-family: var(--px-font); font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ps-brand-700); }
+.al__count { color: var(--px-ink-2); text-transform: none; letter-spacing: 0; }
+.al__title { font-family: var(--px-font); font-size: 0.9rem; color: var(--px-ink); }
+.al__body { font-family: var(--ps-font); font-size: 0.78rem; line-height: 1.35; color: var(--px-ink-2); }
+.px-root .al__open { margin-top: 3px; padding: 1px 8px; border: 1px solid var(--px-frame); border-radius: 999px; background: var(--px-paper); color: var(--px-ink); font-family: var(--ps-font); font-size: 0.74rem; cursor: pointer; }

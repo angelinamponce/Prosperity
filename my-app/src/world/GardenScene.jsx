@@ -15,6 +15,7 @@ import { WalkControls } from "./DPad";
 import { WorldMap, useBox, useStable } from "./WorldMap";
 import { ClassicViewButton } from "./GardenWorld";
 import { StartButton, StartMenu, useStartMenu } from "./StartMenu";
+import { Almanac } from "./Almanac";
 import { BEDS, BORDER, GARDEN, GARDEN_SPAWN, GATE, GREENHOUSE, SIGN, VISITOR_SPOT, elementAt, layoutGarden } from "./gardenMap";
 import { ART, GreenhouseArt, Tile } from "./gardenArt";
 import { SKIES, forecast, forecastText } from "../game/weather";
@@ -471,6 +472,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
           </button>
         </div>
       )}
+      <Almanac profile={profile} metrics={metrics} plan={plan} onMissions={() => go(`garden?scene=missions&return=${encodeURIComponent("garden?scene=plot")}`)} />
       {frame ? (
         <LapsePanel
           frame={frame}

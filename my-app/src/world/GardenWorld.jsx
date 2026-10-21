@@ -8,6 +8,7 @@ import { GLOSSARY } from "../dashboard/glossary";
 import { layoutGarden } from "./gardenMap";
 import { PlotMiniature } from "./PlotMiniature";
 import { StartButton, StartMenu, useStartMenu } from "./StartMenu";
+import { Almanac } from "./Almanac";
 import { buildRecommendations, gradeBreakdown } from "../dashboard/finance";
 import { HandheldFrame } from "./HandheldFrame";
 import { TextBox } from "./TextBox";
@@ -226,6 +227,7 @@ function TownScene({ go, from, profile, metrics, plan }) {
   ) : (
     <div className="gw-panel" ref={bottomRef}>
       <TextBox key={message.text} text={message.text} speaker={message.speaker} font={message.font} instant={instant} />
+      <Almanac profile={profile} metrics={metrics} plan={plan} onMissions={() => go(`garden?scene=missions&return=${encodeURIComponent(`garden?from=${here}`)}`)} />
       {rustle && (
         <ListMenu
           label="The tall grass is rustling"
