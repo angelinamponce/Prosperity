@@ -13,7 +13,7 @@ function GoalCard({ goal, index, go }) {
           <span className="ps-num" style={{ fontWeight: 600, fontSize: 18 }}>{pct(progress)}</span>
         </Ring>
         <div className="db-goal__body">
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
             <h2 className="ps-h3">{goal.term ? <Explain k={goal.term}>{goal.name}</Explain> : goal.name}</h2>
             {goal.onTrack == null ? (
               <Badge>Long-term</Badge>

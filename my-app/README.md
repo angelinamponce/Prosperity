@@ -1,3 +1,42 @@
+# Prosperity
+
+A friendly money dashboard with Sprout, a seedling who grows as you learn. It has two views that share
+one plan and one save:
+
+- **Classic View** (the default): the accessible dashboard. Overview, cash flow, debt payoff, investing,
+  possible futures, goals, quizzes and progress.
+- **Garden mode**: the same plan as a small handheld-style game. A town you can walk around, a garden
+  grown from your real numbers, quiz and debt battles, a forecast, and the Garden Dex.
+
+Nothing important is game-only: everything in Garden mode has a Classic equivalent.
+
+## What's where (`src/`)
+
+| Folder | What it holds |
+|---|---|
+| `dashboard/` | Classic pages, the finance math (`finance.js`: metrics, payoff and market simulations), plain-language summaries, the glossary |
+| `game/` | The game layer, all pure and tested: XP, levels, badges, streak and the save format (`rules.js`, `store.js`); the garden from your numbers (`garden.js`); the Dex, keepers, debt battle, weather, Almanac, tips, daylight |
+| `quiz/` | The question bank, "uses your numbers" templates, spaced-repetition picker, quiz sessions and stats |
+| `world/` | Garden mode screens: the handheld frame, walking engine, town and garden maps, every scene, original pixel art, sound effects |
+| `battle/` | Quiz and keeper battles, Misconception and keeper art |
+| `design/` | The design system: tokens, components, charts, formatting |
+
+## Ground rules the game layer follows
+
+- The garden is never stored: it's recomputed from your survey numbers, so it can't drift or invent progress.
+- XP rewards learning and habits, never dollar amounts. Help is free, wrong answers cost nothing, nothing is lost.
+- Every date says which plan it comes from; what-ifs are labeled and only change your plan when you press Save.
+- Projections and assumptions are labeled; nothing promises returns.
+- Accessibility: keyboard and screen-reader support, reduced motion, WCAG AA contrast, and Classic View as a full alternative.
+- All art, names and sounds are original. Sound is off by default.
+
+## Testing and deploying
+
+- `npm test` runs the Jest suite (pure logic plus key screens).
+- `main` deploys to GitHub Pages through GitHub Actions, which runs the tests first. Work happens on a branch and is fast-forwarded to `main`.
+
+---
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).

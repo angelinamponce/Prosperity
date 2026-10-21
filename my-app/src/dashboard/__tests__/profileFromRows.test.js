@@ -65,7 +65,8 @@ test("missing values become zeros or safe defaults, never NaN", () => {
   expect(p.age).toBe(DEFAULT_AGE);
   expect(p.ageAssumed).toBe(true);
   const m = computeMetrics(p);
-  for (const [k, v] of Object.entries(m)) if (typeof v === "number") expect([k, Number.isNaN(v)]).toEqual([k, false]);
+  const nanFields = Object.entries(m).filter(([, v]) => typeof v === "number" && Number.isNaN(v)).map(([k]) => k);
+  expect(nanFields).toEqual([]);
   expect(p.history.months).toEqual(["Now"]);
 });
 

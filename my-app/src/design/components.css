@@ -74,13 +74,17 @@ a:hover .ps-logo .ps-logo__leaf--l { transform: rotate(12deg) scale(1.08); }
   align-items: center;
   justify-content: center;
   gap: var(--ps-space-2);
-  height: 44px;
+  /* A minimum height, and labels wrap only when wider than the space available (very large text),
+     never squeezed in a row, so normal-size buttons look exactly the same. */
+  min-height: 44px;
+  max-width: 100%;
+  flex-shrink: 0;
   padding: 0 var(--ps-space-6);
   border-radius: var(--ps-radius-full);
   border: 1px solid transparent;
   font-size: var(--ps-text-md);
   font-weight: 500;
-  white-space: nowrap;
+  text-align: center;
   cursor: pointer;
   /* Variants set the parts; the shadow is always composed the same way so focus rings keep the ledge. */
   --ledge: 0 0 0 transparent;
@@ -114,7 +118,7 @@ a:hover .ps-logo .ps-logo__leaf--l { transform: rotate(12deg) scale(1.08); }
 .ps-btn--ghost, .ps-root a.ps-btn--ghost { background: transparent; color: var(--ps-ink-2); }
 .ps-btn--ghost:hover:not(:disabled) { background: var(--ps-surface-sunken); color: var(--ps-ink); }
 .ps-btn--ghost:active:not(:disabled) { transform: scale(0.97); }
-.ps-btn--sm { height: 32px; padding: 0 var(--ps-space-3); font-size: var(--ps-text-sm); --ps-press-depth: 2px; }
+.ps-btn--sm { min-height: 32px; padding: 0 var(--ps-space-3); font-size: var(--ps-text-sm); --ps-press-depth: 2px; }
 .ps-btn--block { width: 100%; }
 .ps-btn .anticon { font-size: 0.95em; }
 

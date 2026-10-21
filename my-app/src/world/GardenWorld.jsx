@@ -226,12 +226,13 @@ function TownScene({ go, from, profile, metrics, plan }) {
   );
 
   const here = `at-${walker.posRef.current.x}-${walker.posRef.current.y}`;
+  const onMissions = useStable(() => go(`garden?scene=missions&return=${encodeURIComponent(`garden?from=${here}`)}`));
   const bottomScreen = start.open ? (
     <StartMenu go={go} onClose={start.close} returnTo={`garden?from=${here}`} battleBack={here} missionsLeft={missionsLeft} />
   ) : (
     <div className="gw-panel" ref={bottomRef}>
       <TextBox key={message.text} text={message.text} speaker={message.speaker} font={message.font} instant={instant} />
-      <Almanac profile={profile} metrics={metrics} plan={plan} onMissions={() => go(`garden?scene=missions&return=${encodeURIComponent(`garden?from=${here}`)}`)} />
+      <Almanac profile={profile} metrics={metrics} plan={plan} onMissions={onMissions} />
       {rustle && (
         <ListMenu
           label="The tall grass is rustling"

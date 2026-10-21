@@ -478,7 +478,8 @@ export function StackedBar({ data, format = money }) {
           />
         ))}
       </div>
-      <ul style={{ listStyle: "none", padding: 0, margin: "16px 0 0", display: "grid", gap: 4 }}>
+      {/* minmax(0, ...) lets long labels wrap with very large text instead of widening the page. */}
+      <ul style={{ listStyle: "none", padding: 0, margin: "16px 0 0", display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 4 }}>
         {data.map((d) => (
           <li
             key={d.key}
@@ -486,7 +487,7 @@ export function StackedBar({ data, format = money }) {
             onPointerLeave={() => setActive(null)}
             style={{
               display: "grid",
-              gridTemplateColumns: "10px 1fr auto auto",
+              gridTemplateColumns: "10px minmax(0, 1fr) auto auto",
               alignItems: "center",
               gap: 10,
               padding: "6px 8px",

@@ -35,15 +35,15 @@ describe("question bank", () => {
       expect([1, 2, 3]).toContain(q.difficulty);
       expect(GLOSSARY[q.term]).toBeDefined();
       expect(q.hint).toBeTruthy();
-      if (q.template) {
-        expect(TEMPLATES[q.template]).toBeDefined();
-      } else {
-        expect(q.prompt).toBeTruthy();
-        expect(q.choices).toHaveLength(4);
-        expect(new Set(q.choices).size).toBe(4);
-        expect(q.correct).toBe(0);
-        expect(q.explain.length).toBeGreaterThan(40);
-      }
+    }
+    // Template questions get their text from a template; the rest are written out in full.
+    for (const q of BANK.filter((x) => x.template)) expect(TEMPLATES[q.template]).toBeDefined();
+    for (const q of BANK.filter((x) => !x.template)) {
+      expect(q.prompt).toBeTruthy();
+      expect(q.choices).toHaveLength(4);
+      expect(new Set(q.choices).size).toBe(4);
+      expect(q.correct).toBe(0);
+      expect(q.explain.length).toBeGreaterThan(40);
     }
   });
 
@@ -70,8 +70,9 @@ describe("templates built from the player's numbers", () => {
         expect(t.explain).toBeTruthy();
         expect(t.prompt).not.toMatch(/NaN|undefined|Infinity/);
         expect(t.explain).not.toMatch(/NaN|undefined|Infinity/);
-        if (key === "contributionsVsGrowth") expect(t.assumption).toMatch(/not a promise/i);
+        expect(key).toBeTruthy();
       }
+      expect(TEMPLATES.contributionsVsGrowth(ctx).assumption).toMatch(/not a promise/i);
     });
   }
 

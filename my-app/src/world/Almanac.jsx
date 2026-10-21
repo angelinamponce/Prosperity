@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { LeftOutlined, RightOutlined } from "@ant-design/icons";
 import { useGame } from "../game/store";
 import { almanacCards } from "../game/almanac";
@@ -33,21 +33,27 @@ const saveCard = (i) => {
  * The Garden Almanac: a small card on the touch screen in Garden mode. The player flips the cards with
  * the arrow buttons; nothing changes on its own. The card's text is announced when it changes.
  */
-export function Almanac({ profile, metrics, plan, onMissions }) {
+// Memoized, with its cards worked out only when the plan or progress changes, not on every step Sprout walks.
+export const Almanac = memo(function Almanac({ profile, metrics, plan, onMissions }) {
   const game = useGame();
   const [i, setI] = useState(readCard);
   const nextRef = useRef(null);
   const recs = useMemo(() => buildRecommendations(profile, metrics, plan).filter((r) => r.habit), [profile, metrics, plan]);
-  if (!game?.ready) return null;
-  const p = game.progress;
-  const quest = pickQuest({
-    fromSurvey: Boolean(profile.fromSurvey),
-    recs,
-    progress: p,
-    words: WORDS,
-    dueCount: Object.values(dueCounts(BANK, p.quiz)).reduce((a, b) => a + b, 0),
-  });
-  const cards = almanacCards({ quest, streakNow: game.streakNow, best: p.streak.best, checkedIn: game.checkedInThisWeek, debts: profile.debts, plan, info: game.info });
+  const p = game?.progress;
+  const cards = useMemo(() => {
+    if (!game?.ready) return null;
+    const quest = pickQuest({
+      fromSurvey: Boolean(profile.fromSurvey),
+      recs,
+      progress: p,
+      words: WORDS,
+      dueCount: Object.values(dueCounts(BANK, p.quiz)).reduce((a, b) => a + b, 0),
+    });
+    return almanacCards({ quest, streakNow: game.streakNow, best: p.streak.best, checkedIn: game.checkedInThisWeek, debts: profile.debts, plan, info: game.info });
+    // game.info and the streak follow from progress, which is a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.ready, p, profile, recs, plan]);
+  if (!cards) return null;
   const n = cards.length;
   const at = ((i % n) + n) % n;
   const card = cards[at];
@@ -93,4 +99,4 @@ export function Almanac({ profile, metrics, plan, onMissions }) {
       </button>
     </section>
   );
-}
+});

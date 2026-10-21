@@ -422,6 +422,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
     if (tile) walker.goTo({ x: tile.x, y: tile.y });
   });
   const stableInteract = useStable(interact);
+  const onMissions = useStable(() => go(`garden?scene=missions&return=${encodeURIComponent("garden?scene=plot")}`));
   const onPick = useStable(show);
 
   const guide = useMemo(
@@ -481,7 +482,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
           </button>
         </div>
       )}
-      <Almanac profile={profile} metrics={metrics} plan={plan} onMissions={() => go(`garden?scene=missions&return=${encodeURIComponent("garden?scene=plot")}`)} />
+      <Almanac profile={profile} metrics={metrics} plan={plan} onMissions={onMissions} />
       {frame ? (
         <LapsePanel
           frame={frame}
