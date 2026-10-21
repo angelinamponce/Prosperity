@@ -36,7 +36,7 @@ export const tileAt = (x, y) => (x < 0 || y < 0 || x >= COLS || y >= ROWS ? "T" 
  */
 export const BUILDINGS = [
   { id: "home", kind: "home", name: "Home", x: 2, y: 2, w: 4, h: 3, door: { x: 3, y: 5 }, opens: "Your dashboard", go: "" },
-  { id: "library", kind: "library", name: "Library", x: 15, y: 2, w: 4, h: 3, door: { x: 16, y: 5 }, opens: "Money words", go: "progress" },
+  { id: "library", kind: "library", name: "Library", x: 15, y: 2, w: 4, h: 3, door: { x: 16, y: 5 }, opens: "Garden Dex: money words", go: "garden?scene=dex" },
   { id: "toolshed", kind: "toolshed", name: "Toolshed", x: 20, y: 3, w: 3, h: 2, door: { x: 21, y: 5 }, opens: "Debt planner", go: "debt" },
   { id: "gh-budgeting", kind: "greenhouse", topic: "budgeting", name: "Budgeting Greenhouse", x: 4, y: 10, w: 3, h: 2, door: { x: 5, y: 12 }, opens: "Budgeting quiz battle", go: "battle?topic=budgeting&from=garden" },
   { id: "gh-debt", kind: "greenhouse", topic: "debt", name: "Debt Greenhouse", x: 7, y: 10, w: 3, h: 2, door: { x: 8, y: 12 }, opens: "Debt quiz battle", go: "battle?topic=debt&from=garden" },

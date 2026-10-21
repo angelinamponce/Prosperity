@@ -4,6 +4,10 @@ import { Button, Card, StageIcon, STAGES } from "../../design";
 import { BADGES, BadgeTile, CHECKINS_PER_FREEZE, LEVEL_XP, MAX_FREEZES, XP, XpBar, useGame } from "../../game";
 import { EmptyState, PageHeader } from "../components";
 import { Explain, GLOSSARY } from "../glossary";
+import { gradeBreakdown } from "../finance";
+import { DEX, dexNumbers } from "../../game/dex";
+import { FOES } from "../../battle/foes";
+import { TOPICS } from "../../quiz/topics";
 
 const Done = ({ children = "Done" }) => (
   <span className="gm-done">
@@ -11,7 +15,7 @@ const Done = ({ children = "Done" }) => (
   </span>
 );
 
-export default function Progress({ onReplayTour }) {
+export default function Progress({ onReplayTour, profile, metrics, plan }) {
   const game = useGame();
   if (!game?.ready) return <EmptyState title="Getting your garden ready…" />;
 
@@ -19,6 +23,7 @@ export default function Progress({ onReplayTour }) {
   const termCount = Object.keys(GLOSSARY).length;
   const learned = Object.keys(p.terms).length;
   const earned = BADGES.filter((b) => p.badges[b.id]);
+  const grade = gradeBreakdown(metrics);
 
   return (
     <>
@@ -142,12 +147,45 @@ export default function Progress({ onReplayTour }) {
       </div>
 
       <div className="db-grid">
-        <Card id="money-words" className="span-12 ps-enter" style={{ "--i": 4, scrollMarginTop: 80 }} title="Money words" subtitle={`${learned} of ${termCount} learned. Tap a ? to read one.`}>
-          <ul className="gm-words">
-            {Object.keys(GLOSSARY).map((k) => (
-              <li key={k} className={p.terms[k] ? "is-learned" : undefined}>
-                <Explain k={k} />
-                {p.terms[k] && <Done>Learned</Done>}
+        <Card
+          id="money-words"
+          className="span-12 ps-enter"
+          style={{ "--i": 4, scrollMarginTop: 80 }}
+          title="Money words · Garden Dex"
+          subtitle={`${learned} of ${termCount} learned. Each word you learn plants its own species in Garden mode. Tap a ? to read one, or a quiz question about it.`}
+        >
+          <ul className="gm-dex">
+            {DEX.map((d) => {
+              const n = dexNumbers(d.key, { profile, m: metrics, plan, grade });
+              return (
+                <li key={d.key} className={p.terms[d.key] ? "is-learned" : undefined}>
+                  <div className="gm-dex__head">
+                    <Explain k={d.key} />
+                    <span className="ps-small">{p.terms[d.key] ? d.species : "Not planted yet"}</span>
+                    {p.terms[d.key] && <Done>Learned</Done>}
+                  </div>
+                  <details className="gm-dex__numbers">
+                    <summary>Show me with my numbers</summary>
+                    <p>{n.text}</p>
+                    {n.assumption && <p className="ps-small"><strong>Assumption:</strong> {n.assumption}</p>}
+                    {!profile.fromSurvey && <p className="ps-small">These are sample numbers.</p>}
+                  </details>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+        <Card className="span-12 ps-enter" style={{ "--i": 5 }} title="Befriended Misconceptions" subtitle={`${FOES.filter((f) => p.quiz.befriended[f.id]).length} of ${FOES.length} befriended. Win a quiz battle to befriend one.`}>
+          <ul className="gm-foes">
+            {FOES.map((f) => (
+              <li key={f.id} className={p.quiz.befriended[f.id] ? "is-learned" : undefined}>
+                <div className="gm-dex__head">
+                  <strong>{f.name}</strong>
+                  <span className="ps-small">{TOPICS[f.topic].label}</span>
+                  {p.quiz.befriended[f.id] ? <Done>Befriended</Done> : <span className="ps-small">Not befriended yet</span>}
+                </div>
+                <p className="ps-small"><strong>The myth:</strong> “{f.myth}”</p>
+                <p className="ps-small"><strong>The truth:</strong> {f.truth}</p>
               </li>
             ))}
           </ul>

@@ -70,7 +70,7 @@ export function answer(s, choice) {
     queue = [...queue.slice(0, at), q.id, ...queue.slice(at)];
     requeued = { ...requeued, [q.id]: true };
   }
-  const entry = { id: q.id, topic: q.topic, difficulty: q.difficulty, choice, correct, retry, assists: assistsFor(s, q.id) };
+  const entry = { id: q.id, topic: q.topic, difficulty: q.difficulty, term: q.term, choice, correct, retry, assists: assistsFor(s, q.id) };
   return { ...s, queue, requeued, phase: "feedback", log: [...s.log, entry], last: { ...entry, comingBack: !correct && !retry } };
 }
 

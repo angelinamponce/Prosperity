@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatedNumber, prefersReducedMotion } from "../design";
 import { useGame } from "../game/store";
-import { BADGES, answerXpPreview } from "../game/rules";
+import { BADGES, XP, answerXpPreview } from "../game/rules";
 import { BANK } from "../quiz/bank";
 import { DIFFICULTY, TOPICS } from "../quiz/topics";
 import { seededRandom, selectQuestions } from "../quiz/select";
@@ -12,6 +12,7 @@ import { TextBox } from "../world/TextBox";
 import { PixelArt } from "../world/PixelArt";
 import { SPROUT_BATTLE, SPROUT_PALETTE } from "../world/sprites";
 import { pickFoe } from "./foes";
+import { GLOSSARY } from "../dashboard/glossary";
 import { FoeSprite } from "./sprites";
 import "./battle.css";
 
@@ -118,6 +119,7 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
       setSession(s);
       if (strength === 0) {
         setEnding("befriended");
+        game.dispatch({ type: "befriend", id: foe.id, name: foe.name });
         return speak([say(`${foe.name} ${foe.befriend}`), say(`You befriended ${foe.name}!`)], "end");
       }
       if (s.phase === "done") {
@@ -150,13 +152,14 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
   const onAnswer = (key) => {
     const s = answer(session, Number(key));
     if (s === session) return;
-    game.dispatch({ type: "answerQuestion", ...s.last });
+    const newWord = s.last.correct && q.term && !game.progress.terms[q.term] ? GLOSSARY[q.term] : null;
+    game.dispatch({ type: "answerQuestion", ...s.last, termTitle: GLOSSARY[s.last.term]?.title });
     setSession(s);
     const right = q.choices[q.correct];
     const assume = q.assumption && read(`Assumption: ${q.assumption}`);
     if (s.last.correct) {
       setStrength((n) => n - 1);
-      setXpWon((x) => x + preview.xp);
+      setXpWon((x) => x + preview.xp + (newWord ? XP.termLearned : 0));
       setFx((f) => ({ n: f.n + 1, kind: "hit" }));
       speak(
         [
@@ -165,6 +168,7 @@ function Battle({ game, profile, metrics, query, given, demo, fromGarden, onExit
           read(q.explain),
           assume,
           say(preview.xp ? `Sprout gained ${preview.xp} XP!` : "Sprout already knew this one, so no XP this time."),
+          newWord && say(`New word for your Garden Dex: ${newWord.title}! +${XP.termLearned} XP`),
         ],
         "nextQuestion"
       );

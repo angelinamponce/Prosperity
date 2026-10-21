@@ -206,3 +206,31 @@ describe("missions (honor system)", () => {
     expect(normalizeProgress({ xp: 10 }).missions).toEqual({});
   });
 });
+
+describe("Phase 9: quiz answers teach words, befriending is remembered", () => {
+  const { reduce, emptyProgress, XP } = require("../rules");
+  const ans = (over = {}) => ({ type: "answerQuestion", id: "d1", topic: "debt", difficulty: 1, correct: true, assists: {}, term: "apr", termTitle: "APR", at: 1000, ...over });
+
+  test("a first right answer learns its word once, with the usual word XP", () => {
+    const a = reduce(emptyProgress(), ans());
+    expect(a.progress.terms.apr).toBe(true);
+    expect(a.events.filter((e) => e.type === "xp").map((e) => e.label)).toContain('You learned "APR"');
+    const b = reduce(a.progress, ans({ id: "d2", at: 2000 }));
+    expect(b.events.some((e) => e.label === 'You learned "APR"')).toBe(false);
+  });
+
+  test("a wrong answer doesn't learn the word", () => {
+    expect(reduce(emptyProgress(), ans({ correct: false })).progress.terms.apr).toBeUndefined();
+  });
+
+  test("befriending is saved, counted, announced once, and earns no extra XP", () => {
+    const a = reduce(emptyProgress(), { type: "befriend", id: "minimum-mite", name: "Minimum Mite", at: 5 });
+    expect(a.progress.quiz.befriended["minimum-mite"]).toEqual({ first: 5, times: 1 });
+    expect(a.events).toEqual([{ type: "befriended", id: "minimum-mite", name: "Minimum Mite" }]);
+    expect(a.progress.xp).toBe(0);
+    const b = reduce(a.progress, { type: "befriend", id: "minimum-mite", name: "Minimum Mite", at: 9 });
+    expect(b.progress.quiz.befriended["minimum-mite"]).toEqual({ first: 5, times: 2 });
+    expect(b.events).toEqual([]);
+    expect(XP.termLearned).toBe(10);
+  });
+});

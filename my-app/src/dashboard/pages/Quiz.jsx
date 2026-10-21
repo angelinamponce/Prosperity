@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRightOutlined, BulbOutlined, CheckCircleFilled, CloseCircleFilled, ScissorOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import { Badge, Button, Card } from "../../design";
-import { ASSIST_SHARE, QUIZ_TOPICS, answerXpPreview, useGame } from "../../game";
+import { ASSIST_SHARE, QUIZ_TOPICS, XP, answerXpPreview, useGame } from "../../game";
 import { BANK } from "../../quiz/bank";
 import { DIFFICULTY, TOPICS } from "../../quiz/topics";
 import { dueCounts, seededRandom, selectQuestions } from "../../quiz/select";
 import { answer, assistsFor, askSprout, currentQuestion, next, resolveQuestion, startSession, summary, takeHint } from "../../quiz/session";
 import { SproutMascot } from "../../sprout";
 import { EmptyState, PageHeader } from "../components";
-import { Explain } from "../glossary";
+import { Explain, GLOSSARY } from "../glossary";
 import "../../quiz/quiz.css";
 
 const QUESTIONS_PER_QUIZ = 5;
@@ -92,9 +92,11 @@ function QuestionView({ session, setSession, game, profile, onLeave, onEarn }) {
     if (choice == null) return;
     const s = answer(session, choice);
     const earned = s.last.correct ? preview.xp : 0;
-    setResult({ correct: s.last.correct, xp: earned, preview });
+    // A first right answer about a word also learns it for the Garden Dex.
+    const newWord = s.last.correct && q.term && game?.ready && !game.progress.terms[q.term] ? q.term : null;
+    setResult({ correct: s.last.correct, xp: earned, preview, newWord });
     onEarn(earned);
-    game.dispatch({ type: "answerQuestion", ...s.last });
+    game.dispatch({ type: "answerQuestion", ...s.last, termTitle: GLOSSARY[s.last.term]?.title });
     setSession(s);
   };
 
@@ -188,6 +190,7 @@ function QuestionView({ session, setSession, game, profile, onLeave, onEarn }) {
             <p className="ps-body">{q.explain}</p>
             {q.assumption && <p className="ps-small qz-assume"><strong>Assumption:</strong> {q.assumption}</p>}
             {q.term && <p className="ps-small qz-term">Money word: <Explain k={q.term} /></p>}
+            {result?.newWord && <p className="ps-small qz-term">New word for your Garden Dex: {GLOSSARY[result.newWord].title} · +{XP.termLearned} XP</p>}
             {session.last?.comingBack && <p className="ps-small">This one will come back in a few questions, so it sticks.</p>}
             <Button iconRight={<ArrowRightOutlined />} onClick={() => setSession(next(session))}>
               {session.pos + 1 >= asked ? "See results" : "Next question"}

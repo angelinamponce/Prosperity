@@ -187,7 +187,7 @@ export function emptyProgress() {
     flags: { surveyDone: false, tourDone: false },
     streak: { count: 0, freezes: START_FREEZES, best: 0, total: 0, lastWeek: null },
     // q: per-question history and review timing; topics: answers per topic.
-    // befriended and keepers are filled in by battles and Greenhouse keepers later.
+    // befriended[foeId] = { first, times }; keepers are filled in by Greenhouse keepers.
     quiz: { q: {}, topics: {}, befriended: {}, keepers: {} },
     // missions[id] = { done, at, xp }: xp is what this mission currently holds (0 or XP.mission).
     missions: {},
@@ -217,7 +217,8 @@ export function normalizeProgress(raw) {
 /**
  * Applies one game action and returns the new progress plus the events to celebrate.
  * Actions: { type: "learnTerm", key, title } | { type: "checkIn", week } | { type: "surveyDone" } | { type: "tourDone" }
- *        | { type: "answerQuestion", id, topic, difficulty, correct, assists: { hint, sprout } }
+ *        | { type: "answerQuestion", id, topic, difficulty, correct, assists: { hint, sprout }, term?, termTitle? }
+ *        | { type: "befriend", id, name }
  *        | { type: "completeMission", id, title } | { type: "undoMission", id }
  * Repeating an action never awards XP twice. ctx.termKeys lists the dashboard's money words.
  */
@@ -259,6 +260,19 @@ export function reduce(progress, action, ctx = { termKeys: [] }) {
       p = { ...p, quiz: res.quiz };
       // Wrong answers cost nothing; they just come back sooner.
       if (action.correct && res.due) addXp(quizXp(action.difficulty, action.assists), "Correct answer");
+      // The first right answer about a word counts as learning it (once, like opening its "?").
+      if (action.correct && action.term && !p.terms[action.term]) {
+        p = { ...p, terms: { ...p.terms, [action.term]: true } };
+        addXp(XP.termLearned, `You learned "${action.termTitle ?? action.term}"`);
+      }
+      break;
+    }
+    case "befriend": {
+      // Remembered for the Garden Dex. No extra XP: the answers that won it already earned that.
+      const prev = p.quiz.befriended[action.id];
+      const at = action.at ?? Date.now();
+      p = { ...p, quiz: { ...p.quiz, befriended: { ...p.quiz.befriended, [action.id]: { first: prev?.first ?? at, times: (prev?.times ?? 0) + 1 } } } };
+      if (!prev) events.push({ type: "befriended", id: action.id, name: action.name });
       break;
     }
     case "completeMission": {

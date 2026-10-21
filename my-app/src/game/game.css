@@ -100,10 +100,17 @@
 .gm-freeze { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--ps-brand-50); border: 2px solid var(--ps-brand-300); color: var(--ps-brand-700); }
 .gm-freeze.is-empty { background: transparent; border-style: dashed; border-color: var(--ps-border-strong); color: var(--ps-ink-3); }
 
-.gm-words { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ps-space-2); }
-.gm-words li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; border-radius: var(--ps-radius-full); border: 1px solid var(--ps-border); background: var(--ps-surface); font-size: var(--ps-text-sm); }
-.gm-words li.is-learned { background: var(--ps-brand-50); border-color: var(--ps-brand-200); }
-.gm-words .gm-done { font-size: var(--ps-text-xs); }
+
+/* Money words as the Garden Dex, and the befriended Misconceptions */
+.gm-dex, .gm-foes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--ps-space-2); }
+.gm-dex li, .gm-foes li { padding: 10px 12px; border-radius: var(--ps-radius-md); border: 1px solid var(--ps-border); background: var(--ps-surface); }
+.gm-dex li.is-learned, .gm-foes li.is-learned { background: var(--ps-brand-50); border-color: var(--ps-brand-200); }
+.gm-dex__head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.gm-dex__head .gm-done { margin-left: auto; font-size: var(--ps-text-xs); }
+.gm-foes p { margin: 6px 0 0; }
+.gm-dex__numbers { margin-top: 6px; font-size: var(--ps-text-sm); }
+.gm-dex__numbers summary { cursor: pointer; color: var(--ps-brand-700); font-weight: 600; min-height: 24px; }
+.gm-dex__numbers p { margin: 6px 0 0; }
 
 /* "+10 XP" note inside a money word's explanation */
 .gm-term-note { display: flex; align-items: center; gap: 6px; margin-top: var(--ps-space-2); padding-top: var(--ps-space-2); border-top: 1px dashed var(--ps-border); color: var(--ps-brand-700); font-size: var(--ps-text-xs); font-weight: 600; }
@@ -115,6 +122,7 @@
   .gm-stages { grid-template-columns: repeat(5, minmax(56px, 1fr)); overflow-x: auto; }
   .gm-earn li { grid-template-columns: 52px minmax(0, 1fr); }
   .gm-earn li > :last-child { grid-column: 2; justify-self: start; }
+  .gm-dex, .gm-foes { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

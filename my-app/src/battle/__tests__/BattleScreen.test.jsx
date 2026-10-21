@@ -5,7 +5,7 @@ import { foeById } from "../foes";
 import { BANK } from "../../quiz/bank";
 import { resolveQuestion } from "../../quiz/session";
 import { GameContext, gameKey, useGameStore } from "../../game/store";
-import { quizXp } from "../../game/rules";
+import { XP, quizXp } from "../../game/rules";
 import { sampleProfile } from "../../dashboard/sampleProfile";
 import { computeMetrics } from "../../dashboard/finance";
 
@@ -62,11 +62,17 @@ test("a full battle: help, a right answer, a wrong one that comes back, and befr
   fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" }); // back to the command menu
   expect(menuItem("Toolshed")).toBeInTheDocument();
 
-  // Right answer: strength drops and XP is paid at 75% for using one kind of help.
+  // Right answer: strength drops and XP is paid at 75% for using one kind of help. It's also the first
+  // right answer about its word, so the word is learned for the Garden Dex (+10).
   answerWith(Q1.choices[Q1.correct]);
   expect(screen.getByText("Strength 1/2")).toBeInTheDocument();
-  expect(screen.getByTestId("xp")).toHaveTextContent(String(quizXp(Q1.difficulty, { sprout: true }) + 25)); // + Good Question badge
-  continueToMenu();
+  expect(screen.getByTestId("xp")).toHaveTextContent(String(quizXp(Q1.difficulty, { sprout: true }) + XP.termLearned + 25)); // + Good Question badge
+  let sawWord = false;
+  for (let i = 0; i < 20 && !screen.queryByRole("menu"); i += 1) {
+    sawWord ||= /New word for your Garden Dex: Minimum payment! \+10 XP/.test(document.body.textContent);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+  }
+  expect(sawWord).toBe(true);
 
   // Wrong answer: no XP lost, and the question is promised back.
   const xpBefore = screen.getByTestId("xp").textContent;
@@ -83,6 +89,8 @@ test("a full battle: help, a right answer, a wrong one that comes back, and befr
   }
   expect(screen.getByText(/You befriended Minimum Mite!/, { selector: ".tb__text *, .ps-sr-only" })).toBeTruthy();
   expect(screen.getByText("Strength 0/2")).toBeInTheDocument();
+  // Befriending is saved for the Garden Dex.
+  expect(JSON.parse(localStorage.getItem(gameKey("tester"))).quiz.befriended["minimum-mite"].times).toBe(1);
   fireEvent.click(screen.getByRole("menuitem", { name: /back to quizzes/i }));
   expect(go).toHaveBeenCalledWith("quiz");
 });

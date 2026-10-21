@@ -20,6 +20,7 @@ import "./garden.css";
 
 // The garden scene loads only when someone walks into the plot.
 const GardenScene = lazy(() => import("./GardenScene"));
+const DexScene = lazy(() => import("./DexScene"));
 
 // The "Go to..." list doesn't change while Sprout walks, so it skips those re-renders.
 const GoToList = memo(ListMenu);
@@ -72,7 +73,9 @@ const WELCOME = "Welcome to Sprout's town! Walk to a building to visit it, or pi
 const PLOT_LINE = "Your garden plot: see what's growing from your numbers. Walk up through the gate to go in.";
 
 /** The town: buildings open parts of the plan; the plot's gate leads into the Garden scene. */
-function TownScene({ go, fromPlot, profile, metrics, plan }) {
+function TownScene({ go, from, profile, metrics, plan }) {
+  const fromPlot = from === "plot";
+  const fromBuilding = BUILDINGS.find((b) => b.id === from);
   const game = useGame();
   const learned = game?.ready ? Object.keys(game.progress.terms).length : 0;
   const garden = useMemo(
@@ -84,7 +87,11 @@ function TownScene({ go, fromPlot, profile, metrics, plan }) {
   const instant = Boolean(game?.progress.settings.instantText) || Boolean(prefersReducedMotion());
   const reduced = Boolean(prefersReducedMotion());
   const [message, setMessage] = useState(
-    fromPlot ? { text: "Back in town. Your garden is right behind you.", speaker: "Sprout", font: "pixel" } : { text: WELCOME, speaker: "Sprout", font: "pixel" }
+    fromPlot
+      ? { text: "Back in town. Your garden is right behind you.", speaker: "Sprout", font: "pixel" }
+      : fromBuilding
+        ? { text: `Back outside the ${fromBuilding.name}.`, speaker: "Sprout", font: "pixel" }
+        : { text: WELCOME, speaker: "Sprout", font: "pixel" }
   );
 
   const enterGarden = () => go("garden?scene=plot");
@@ -94,7 +101,7 @@ function TownScene({ go, fromPlot, profile, metrics, plan }) {
   const walker = useWalker({
     world: TOWN,
     // Coming back from the garden, Sprout steps out through the gate.
-    start: fromPlot ? { x: PLOT.gate.x, y: PLOT.gate.y + 1 } : SPAWN,
+    start: fromPlot ? { x: PLOT.gate.x, y: PLOT.gate.y + 1 } : fromBuilding ? { x: fromBuilding.door.x, y: fromBuilding.door.y + 1 } : SPAWN,
     reduced,
     onEnter: enter,
     // Arriving at a door says where it leads.
@@ -205,12 +212,14 @@ export default function GardenWorld(props) {
     if (game.progress.settings.view !== "garden") game.setSetting("view", "garden");
   }, [game]);
 
-  if (query?.get("scene") === "plot") {
+  const scene = query?.get("scene");
+  if (scene === "plot" || scene === "dex") {
+    const Scene = scene === "plot" ? GardenScene : DexScene;
     return (
-      <Suspense fallback={<div className="px-root gw-loading" role="status">Opening your garden…</div>}>
-        <GardenScene {...props} />
+      <Suspense fallback={<div className="px-root gw-loading" role="status">{scene === "plot" ? "Opening your garden…" : "Opening the Garden Dex…"}</div>}>
+        <Scene {...props} />
       </Suspense>
     );
   }
-  return <TownScene go={props.go} fromPlot={query?.get("from") === "plot"} profile={props.profile} metrics={props.metrics} plan={props.plan} />;
+  return <TownScene go={props.go} from={query?.get("from")} profile={props.profile} metrics={props.metrics} plan={props.plan} />;
 }
