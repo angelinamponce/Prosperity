@@ -47,10 +47,11 @@ body:has(.px-root) { margin: 0; }
   background: var(--px-paper-2);
 }
 .hh__screen--bottom { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
-.hh__hinge { display: grid; grid-template-columns: 24px 1fr 24px; align-items: center; gap: 8px; min-height: 48px; padding: 6px 4px; }
+.hh__hinge { display: grid; grid-template-columns: 24px minmax(0, 1fr) 24px; align-items: center; gap: 8px; min-height: 48px; padding: 6px 4px; }
 .hh__led { width: 8px; height: 8px; border-radius: 50%; background: #7bd88f; box-shadow: 0 0 6px #7bd88f; }
 .hh__speaker { width: 22px; height: 10px; background: radial-gradient(circle, #0e1611 1.2px, transparent 1.6px) 0 0 / 5px 5px; opacity: 0.8; }
-.hh__toolbar { display: flex; justify-content: center; gap: 8px; }
+/* Buttons keep their labels on one line; on a narrow screen the row wraps instead of widening the page. */
+.hh__toolbar { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 8px; }
 
 .px-root .hh-btn {
   display: inline-flex;
@@ -83,6 +84,11 @@ body:has(.px-root) { margin: 0; }
   .hh__device { height: 100dvh; }
   .hh__screen--bottom { flex: 1; aspect-ratio: auto; min-height: 0; padding: 10px; overflow-y: auto; }
   .hh__hinge { min-height: 44px; padding: 4px 10px; }
+  /* Phones: the decorative light and speaker step aside, and the buttons get compact, so three still
+     fit on one row on most phones. */
+  .hh__hinge { grid-template-columns: minmax(0, 1fr); padding: 4px 6px; }
+  .hh__led, .hh__speaker { display: none; }
+  .px-root .hh-btn { padding: 0 10px; gap: 4px; font-size: 0.8rem; letter-spacing: 0.02em; }
 }
 
 /* Short landscape screens (laptops, tablets, phones on their side): the screens sit side by side so

@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { EnvironmentOutlined, HomeOutlined } from "@ant-design/icons";
 import { Slider, duration, money, pct, prefersReducedMotion } from "../design";
 import { useGame } from "../game/store";
-import { deriveGarden, payoffLookahead, DEBT_PER_WEED, LOOKAHEAD_MONTHS, MAX_WEEDS_PER_DEBT } from "../game/garden";
+import { deriveGarden, lapseFrame, payoffLookahead, DEBT_PER_WEED, LOOKAHEAD_MONTHS, MAX_WEEDS_PER_DEBT } from "../game/garden";
 import { gradeBreakdown, HIGH_INTEREST_APR } from "../dashboard/finance";
 import { GLOSSARY } from "../dashboard/glossary";
 import { HandheldFrame } from "./HandheldFrame";
@@ -74,7 +74,7 @@ function numbersFor(garden, plan, wi, key) {
 }
 
 /** Everything growing in the garden, as buttons over the ground. Memoized: walking doesn't re-render it. */
-const Plants = memo(function Plants({ garden, layout, ghosts, ghostNote, reduced, droop, onShow }) {
+const Plants = memo(function Plants({ garden, layout, ghosts, ghostNote, reduced, droop, frame, onShow }) {
   const g = garden.byId;
   const click = (key, tile) => (e) => {
     e.stopPropagation();
@@ -95,7 +95,26 @@ const Plants = memo(function Plants({ garden, layout, ghosts, ghostNote, reduced
       {/* Patches a plan would clear within the year stay in place, outlined with a flag: never removed as if paid. */}
       {layout.weeds.map((w) => {
         const d = g.weeds.weeds[w.debt];
-        const ghost = ghosts.has(`${w.x}-${w.y}`);
+        // In the fast-forward, a patch past its projected month becomes a fresh seedling.
+        if (frame?.cleared.has(`${w.debt}-${w.k}`)) {
+          return w.first ? (
+            <button
+              key={`w${w.x}-${w.y}`}
+              type="button"
+              className="gs-tile gs-hit gs-new"
+              style={at(w.x, w.y)}
+              aria-label={`${d.name}: cleared by ${frame.date} in this projection. Show the numbers.`}
+              onClick={click(`weeds:${w.debt}`, w)}
+            >
+              <Tile rows={ART.SEEDLING} />
+            </button>
+          ) : (
+            <span key={`w${w.x}-${w.y}`} className="gs-tile gs-new" style={at(w.x, w.y)} onClick={click(`weeds:${w.debt}`, w)} aria-hidden>
+              <Tile rows={ART.SEEDLING} />
+            </span>
+          );
+        }
+        const ghost = !frame && ghosts.has(`${w.x}-${w.y}`);
         const art = (
           <>
             <Tile rows={w.thorny ? ART.BRAMBLE : ART.WEED} />
@@ -154,7 +173,7 @@ const Plants = memo(function Plants({ garden, layout, ghosts, ghostNote, reduced
       </button>
 
       <button type="button" className="gs-hit gs-tall" style={{ ...at(GREENHOUSE.x, GREENHOUSE.y - 1, GREENHOUSE.w, GREENHOUSE.h + 1), zIndex: (GREENHOUSE.y + GREENHOUSE.h) * 10 }} aria-label={`Greenhouse: ${g.greenhouse.label}. Show the numbers.`} onClick={click("greenhouse", GREENHOUSE.door)}>
-        <GreenhouseArt stage={g.greenhouse.state} />
+        <GreenhouseArt stage={frame ? frame.greenhouse.stage : g.greenhouse.state} />
       </button>
 
       <button type="button" className="gs-tile gs-hit" style={at(SIGN.x, SIGN.y)} aria-label={`Season sign: ${g.season.label}. Show the numbers.`} onClick={click("season", SIGN)}>
@@ -183,7 +202,7 @@ function useSettled(value, ms) {
  * "What if you paid $X extra?" slider. The slider is a what-if: it outlines what that plan would clear and
  * shows its date beside the saved one, labeled as not saved. Only "Save this to my plan" changes the plan.
  */
-function HarvestClock({ season, plan, wi, saved, onTry, onSave, onReset, status }) {
+function HarvestClock({ season, plan, wi, saved, onTry, onSave, onReset, status, onLapse }) {
   const harvest = season.state === "harvest";
   const ghostCount = wi.ghosts.size;
   const sooner = wi.trying && saved.months != null && wi.shown.months != null ? saved.months - wi.shown.months : 0;
@@ -216,6 +235,11 @@ function HarvestClock({ season, plan, wi, saved, onTry, onSave, onReset, status 
             ? `Your debt-free date on your saved plan (${money(plan.extraDebt)} extra a month). A countdown, not a progress meter.`
             : `On your saved plan (${money(plan.extraDebt)} extra a month), payments don't catch up with the interest yet, so there's no Harvest Festival date. The slider below shows what would set one.`}
       </p>
+      {!harvest && wi.shown.months != null && (
+        <button type="button" className="gs-btn gs-lapse-go" onClick={onLapse}>
+          ▶ Fast-forward to Harvest Festival
+        </button>
+      )}
       {!harvest && (
         <div className="gs-whatif">
           <Slider label={`What if you paid ${money(wi.extra)} extra?`} value={wi.extra} min={0} max={1500} step={25} format={money} hint="a month" onChange={onTry} />
@@ -233,6 +257,56 @@ function HarvestClock({ season, plan, wi, saved, onTry, onSave, onReset, status 
           <p className="gs-whatif__status" role="status">{status}</p>
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * "Fast-forward to Harvest Festival": the plan shown, month by month, as a labeled projection. Play
+ * steps a month at a time (no autoplay with reduced motion); the scrubber and its arrow keys move
+ * freely; the text is read aloud once the scrubber settles.
+ */
+function LapsePanel({ frame, wi, plan, playing, reduced, onPlay, onSeek, onExit }) {
+  const which = wi.trying ? `what-if: ${money(wi.extra)} extra a month, not saved` : `your saved plan: ${money(plan.extraDebt)} extra a month`;
+  const debtsLine = frame.clearedDebts.length ? `Cleared so far: ${frame.clearedDebts.join(", ")}.` : "No debt cleared yet.";
+  const text = frame.done
+    ? `Harvest Festival, ${frame.date}! On ${which}, every weed is cleared and you're debt-free. The greenhouse: ${frame.greenhouse.label.toLowerCase()}. This is a projection: the real festival comes when your survey shows $0.`
+    : `${frame.date}, ${frame.season.toLowerCase()} (month ${frame.t} of ${frame.total}). ${debtsLine} ${frame.patchesLeft} weed ${frame.patchesLeft === 1 ? "patch" : "patches"} left. Greenhouse: ${frame.greenhouse.label.toLowerCase()} (${frame.emergencyMonths.toFixed(1)} months of essentials).`;
+  const settled = useSettled(playing ? "" : text, 600);
+  return (
+    <section className="gs-clock gs-lapse" aria-labelledby="gs-lapse-title">
+      <div className="gs-clock__head">
+        <h3 id="gs-lapse-title" className="gw-panel__title">Fast-forward to Harvest Festival</h3>
+        <p className="gs-clock__big">{frame.done ? `Harvest Festival · ${frame.date}` : `${frame.season} · ${frame.date}`}</p>
+      </div>
+      <p className="gs-whatif__tag">Projection · {which}</p>
+      <label className="gs-lapse__scrub">
+        <span className="ps-sr-only">Month</span>
+        <input
+          type="range"
+          min={0}
+          max={frame.total}
+          step={1}
+          value={frame.t}
+          onChange={(e) => onSeek(Number(e.target.value))}
+          aria-valuetext={`${frame.date}, month ${frame.t} of ${frame.total}`}
+        />
+        <span className="gs-lapse__ends" aria-hidden><span>Today</span><span>{frame.done ? "Festival!" : `Festival · month ${frame.total}`}</span></span>
+      </label>
+      <p className="gs-whatif__result">{text}</p>
+      <p className="ps-sr-only" aria-live="polite">{settled}</p>
+      <p className="gs-clock__note">
+        Assumes today's balances, rates and minimums hold, and {money(frame.emergencyMonthly)} a month into your emergency fund, as in your plan.
+      </p>
+      <div className="gs-whatif__actions">
+        {!reduced && (
+          <button type="button" className="gs-btn gs-btn--primary" aria-pressed={playing} onClick={onPlay}>
+            {playing ? "❚❚ Pause" : frame.done ? "▶ Play again" : "▶ Play"}
+          </button>
+        )}
+        {!frame.done && <button type="button" className="gs-btn" onClick={() => onSeek(frame.total)}>Jump to the festival</button>}
+        <button type="button" className="gs-btn" onClick={onExit}>Back to today</button>
+      </div>
     </section>
   );
 }
@@ -276,6 +350,19 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
   );
   const placed = useMemo(() => layout.weeds.reduce((acc, w) => ({ ...acc, [w.debt]: (acc[w.debt] ?? 0) + 1 }), {}), [layout]);
   const wi = { trying, extra, shown, ghosts, placed, weather };
+
+  // Fast-forward to Harvest Festival: a frame of the plan shown, `lapse.t` months from now.
+  const [lapse, setLapse] = useState(null); // { t, playing }
+  const frame = useMemo(() => (lapse ? lapseFrame({ ahead: shown, profile, m: metrics, t: lapse.t }) : null), [lapse, shown, profile, metrics]);
+  useEffect(() => {
+    if (!lapse?.playing) return undefined;
+    const id = setInterval(() => {
+      // Pauses with the tab hidden, and stops at the festival.
+      if (document.hidden) return;
+      setLapse((l) => (l.t >= (shown.months ?? 0) ? { ...l, playing: false } : { ...l, t: l.t + 1 }));
+    }, 260);
+    return () => clearInterval(id);
+  }, [lapse?.playing, shown.months]);
 
   // The text box holds either a line of its own or the key of an element, whose numbers stay live
   // while the slider moves (shown instantly then, rather than re-typed on every step).
@@ -351,8 +438,16 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
       onInteract={interact}
       onUnreachable={() => setMessage({ text: "Sprout can't get there. Try the grass or the path.", speaker: "Sprout", font: "pixel" })}
     >
-      <Plants garden={garden} layout={layout} ghosts={ghosts} ghostNote={planWords(wi)} reduced={reduced} droop={droop} onShow={onShow} />
-      {!weather.none && weather.sky !== "sunny" && (
+      <Plants garden={garden} layout={layout} ghosts={ghosts} ghostNote={planWords(wi)} reduced={reduced} droop={droop} frame={frame} onShow={onShow} />
+      {frame?.done && (
+        <div className="gs-festival" aria-hidden>
+          <div className="gs-bunting" />
+          <p className="gs-festival__banner">Harvest Festival · {frame.date}</p>
+          {!reduced && <div className="gs-leaves">{Array.from({ length: 14 }, (_, i) => <span key={i} style={{ "--i": i }} />)}</div>}
+        </div>
+      )}
+      {/* The forecast is about retirement, not the debt-free date, so its sky steps aside during the fast-forward. */}
+      {!frame && !weather.none && weather.sky !== "sunny" && (
         <div className={`gs-sky gs-sky--${weather.sky}`} aria-hidden>
           {weather.sky === "stormy" ? <div className="gs-rain" /> : <div className="gs-cloud" />}
         </div>
@@ -376,7 +471,34 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
           </button>
         </div>
       )}
-      <HarvestClock season={garden.byId.season} plan={plan} wi={wi} saved={saved} onTry={onTry} onSave={onSave} onReset={onReset} status={status} />
+      {frame ? (
+        <LapsePanel
+          frame={frame}
+          wi={wi}
+          plan={plan}
+          playing={Boolean(lapse?.playing)}
+          reduced={reduced}
+          onPlay={() => setLapse((l) => (l.playing ? { ...l, playing: false } : { t: frame.done ? 0 : l.t, playing: true }))}
+          onSeek={(t) => setLapse({ t, playing: false })}
+          onExit={() => setLapse(null)}
+        />
+      ) : (
+        <HarvestClock
+          season={garden.byId.season}
+          plan={plan}
+          wi={wi}
+          saved={saved}
+          onTry={onTry}
+          onSave={onSave}
+          onReset={onReset}
+          status={status}
+          onLapse={() => {
+            walker.stop();
+            // With reduced motion there's no autoplay: the scrubber starts at today.
+            setLapse({ t: 0, playing: !reduced });
+          }}
+        />
+      )}
       {!profile.fromSurvey && <p className="gs-sample">These are sample numbers. Finish the survey to grow your own garden.</p>}
       <p className="gw-where">
         <EnvironmentOutlined aria-hidden /> Sprout is {GARDEN.describe(walker.pos)}. The gate back to town is at the bottom.

@@ -91,3 +91,44 @@ describe("payoffLookahead: when a plan clears each debt and each weed patch", ()
     expect(payoffLookahead([], { now })).toEqual({ debts: [], months: 0, date: null });
   });
 });
+
+describe("lapseFrame: Fast-forward to Harvest Festival", () => {
+  const { lapseFrame, payoffLookahead } = require("../garden");
+  const m = computeMetrics(sampleProfile);
+  const ahead = payoffLookahead(sampleProfile.debts, { extra: 300, strategy: "avalanche", now });
+  const at = (t) => lapseFrame({ ahead, profile: sampleProfile, m, t, now });
+
+  test("today nothing is cleared; at the end everything is, on the debt-free date, at the festival", () => {
+    const start = at(0);
+    expect(start.cleared.size).toBe(0);
+    expect(start.patchesLeft).toBe(12);
+    expect(start.season).toBe("Spring");
+    const end = at(ahead.months);
+    expect(end.done).toBe(true);
+    expect(end.season).toBe("Harvest Festival");
+    expect(end.patchesLeft).toBe(0);
+    expect(end.date).toBe(ahead.date);
+    expect(end.clearedDebts).toEqual(["Credit card", "Car loan", "Student loan"]);
+    expect(at(ahead.months + 50).t).toBe(ahead.months); // never runs past the festival
+  });
+
+  test("patches only ever clear going forward, and each debt clears on its own payoff month", () => {
+    let prev = -1;
+    for (let t = 0; t <= ahead.months; t += 1) {
+      const f = at(t);
+      expect(f.cleared.size).toBeGreaterThanOrEqual(prev);
+      prev = f.cleared.size;
+    }
+    for (const d of ahead.debts) {
+      expect(at(d.payoffMonth).clearedDebts).toContain(d.name);
+      expect(at(d.payoffMonth - 1).clearedDebts).not.toContain(d.name);
+    }
+  });
+
+  test("the greenhouse grows with the plan's monthly emergency-fund money", () => {
+    const f = at(12);
+    expect(f.emergencyMonthly).toBe(900);
+    expect(f.emergencyMonths).toBeCloseTo((m.emergencyBalance + 900 * 12) / m.essential, 6);
+    expect(f.greenhouse.stage).toBeGreaterThanOrEqual(at(0).greenhouse.stage);
+  });
+});

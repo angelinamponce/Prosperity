@@ -174,3 +174,46 @@ export function deriveGarden({ profile, m, plan, healthScore, learned = 0, wordT
     `${seasonEl.label}.`;
   return { elements, byId: Object.fromEntries(elements.map((e) => [e.id, e])), description };
 }
+
+const SEASONS = ["Spring", "Summer", "Autumn"];
+
+/**
+ * One frame of "Fast-forward to Harvest Festival": the garden `t` months from now on the plan shown
+ * (`ahead` from payoffLookahead). Patches clear on their projected months; the greenhouse grows with
+ * the plan's monthly emergency-fund money; the season moves from spring to the festival. A projection:
+ * it assumes today's balances, rates, minimums and monthly amounts hold.
+ * Returns { t, total, date, cleared: Set("debt-k"), clearedDebts, patchesLeft, emergencyMonths,
+ * greenhouse: { stage, label }, season, done }.
+ */
+export function lapseFrame({ ahead, profile, m, t, now = new Date() }) {
+  const total = ahead.months ?? 0;
+  const month = Math.max(0, Math.min(total, t));
+  const cleared = new Set();
+  let patchesLeft = 0;
+  const clearedDebts = [];
+  ahead.debts.forEach((d, i) => {
+    d.patchMonths.forEach((pm, k) => {
+      if (pm != null && pm <= month) cleared.add(`${i}-${k}`);
+      else patchesLeft += 1;
+    });
+    if (d.payoffMonth != null && d.payoffMonth <= month) clearedDebts.push(d.name);
+  });
+  const monthly = (profile.allocation ?? []).find((a) => a.key === "emergency")?.monthly ?? 0;
+  const emergencyMonths = m.essential > 0 ? (m.emergencyBalance + monthly * month) / m.essential : 0;
+  const stage = greenhouseStage(emergencyMonths);
+  const done = total > 0 && month >= total;
+  const season = done ? "Harvest Festival" : SEASONS[Math.min(2, Math.floor((month / Math.max(1, total)) * 3))];
+  return {
+    t: month,
+    total,
+    date: addMonths(now, month),
+    cleared,
+    clearedDebts,
+    patchesLeft,
+    emergencyMonths,
+    emergencyMonthly: monthly,
+    greenhouse: { stage, label: GREENHOUSE[stage] },
+    season,
+    done,
+  };
+}

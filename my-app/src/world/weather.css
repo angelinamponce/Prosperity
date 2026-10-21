@@ -27,6 +27,22 @@
 .gs-droop svg { transform-origin: 50% 100%; animation: gs-droop 4s ease-in-out both; }
 @keyframes gs-droop { 0%, 100% { transform: none; } 20%, 70% { transform: scaleY(0.8) skewX(-8deg); } }
 
+/* Fast-forward to Harvest Festival. */
+.px-root .gs-lapse-go { align-self: flex-start; margin-top: 4px; }
+.gs-lapse { display: flex; flex-direction: column; gap: 4px; }
+.gs-lapse__scrub { display: grid; gap: 2px; }
+.gs-lapse__scrub input { width: 100%; accent-color: var(--ps-brand-600); }
+.gs-lapse__ends { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--px-ink-2); }
+.gs-new svg { animation: gs-sprout 400ms steps(3, jump-none); }
+@keyframes gs-sprout { from { transform: scale(0.4); } }
+.gs-festival { position: absolute; inset: 0; z-index: 420; pointer-events: none; overflow: hidden; }
+.gs-bunting { position: absolute; left: 0; right: 0; top: 6px; height: 10px; background: repeating-linear-gradient(90deg, #f08aa0 0 10px, #fbfbf5 10px 20px, #6fbf5f 20px 30px, #b89ad6 30px 40px); clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%); }
+.gs-bunting::after { content: ""; position: absolute; inset: 4px 0 0; background: repeating-linear-gradient(90deg, #f08aa0 0 10px, #fbfbf5 10px 20px, #6fbf5f 20px 30px, #b89ad6 30px 40px); clip-path: polygon(0 0, 2.6% 100%, 5.2% 0, 7.8% 100%, 10.4% 0, 13% 100%, 15.6% 0, 18.2% 100%, 20.8% 0, 23.4% 100%, 26% 0, 28.6% 100%, 31.2% 0, 33.8% 100%, 36.4% 0, 39% 100%, 41.6% 0, 44.2% 100%, 46.8% 0, 49.4% 100%, 52% 0, 54.6% 100%, 57.2% 0, 59.8% 100%, 62.4% 0, 65% 100%, 67.6% 0, 70.2% 100%, 72.8% 0, 75.4% 100%, 78% 0, 80.6% 100%, 83.2% 0, 85.8% 100%, 88.4% 0, 91% 100%, 93.6% 0, 96.2% 100%, 98.8% 0, 100% 50%); }
+.gs-festival__banner { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); padding: 2px 8px; border: 1px solid var(--px-frame); background: var(--px-paper); font-family: var(--px-font); font-size: 9px; color: var(--px-ink); white-space: nowrap; }
+.gs-leaves span { position: absolute; top: -8px; left: calc(4% + var(--i) * 6.8%); width: 4px; height: 4px; background: var(--ps-brand-400); border-radius: 0 60% 0 60%; animation: gs-fall 2.6s linear infinite; animation-delay: calc(var(--i) * -0.19s); }
+.gs-leaves span:nth-child(3n) { background: #f08aa0; }
+@keyframes gs-fall { to { transform: translateY(250px) rotate(300deg); } }
+
 @media (max-width: 700px) {
   .ws-cards { gap: 6px; }
   .ws-card { min-width: 0; padding: 5px 6px; }
@@ -36,5 +52,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .ws-rain, .gs-rain, .gs-cloud { display: none; }
-  .gs-droop svg { animation: none; }
+  .gs-droop svg, .gs-new svg { animation: none; }
+  .gs-leaves { display: none; }
 }
