@@ -155,6 +155,15 @@
 .gs-clock__note, .gs-sample { margin: 3px 0 0; font-family: var(--ps-font); font-size: 0.74rem; line-height: 1.35; color: var(--px-ink-2); }
 .gs-sample { margin: 0; }
 
+/* The whole garden in words: a plain list of every element and its numbers. */
+.gs-all { flex-shrink: 0; padding: 6px 10px; border: 2px solid var(--px-frame); border-radius: 8px; background: var(--px-paper); font-family: var(--ps-font); font-size: 0.82rem; line-height: 1.45; color: var(--px-ink); }
+.gs-all summary { min-height: 32px; display: flex; align-items: center; font-family: var(--px-font); font-size: 0.9rem; cursor: pointer; }
+.px-root .gs-all summary:focus-visible { outline: 2px solid var(--ps-brand-700); outline-offset: 2px; }
+.gs-all p, .gs-all dl { margin: 4px 0; }
+.gs-all dl > div { padding: 5px 0; border-top: 1px dotted var(--px-frame); }
+.gs-all dt { font-weight: 600; }
+.gs-all dd { margin: 0; }
+
 /* The what-if slider lives inside the Harvest Festival card. */
 .gs-whatif { margin-top: 6px; padding-top: 6px; border-top: 2px dotted var(--px-frame); }
 .gs-whatif .ps-slider { gap: 2px; }

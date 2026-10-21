@@ -7,10 +7,13 @@ const CHAR_MS = 22;
  * motion). While `waiting`, a blinking arrow invites the player on: the first press finishes the line,
  * the next calls `onContinue`. Screen readers get each full line once, through a polite live region.
  * `font`: "pixel" for short game lines, "read" for explanations and numbers.
+ * `announce={false}` updates the text without re-reading it aloud (say, numbers refreshing while a slider moves).
  */
-export function TextBox({ text, font = "pixel", instant, paused, waiting, onContinue, speaker }) {
+export function TextBox({ text, font = "pixel", instant, paused, waiting, onContinue, speaker, announce = true }) {
   const [shown, setShown] = useState(instant ? text.length : 0);
   const btnRef = useRef(null);
+  const spoken = useRef(text);
+  if (announce) spoken.current = text;
   const done = shown >= text.length;
 
   useEffect(() => {
@@ -42,7 +45,7 @@ export function TextBox({ text, font = "pixel", instant, paused, waiting, onCont
       </p>
       <p className="ps-sr-only" aria-live="polite">
         {speaker ? `${speaker}: ` : ""}
-        {text}
+        {spoken.current}
       </p>
       {waiting && (
         <button

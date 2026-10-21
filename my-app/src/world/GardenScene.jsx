@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { EnvironmentOutlined, HomeOutlined } from "@ant-design/icons";
 import { Slider, duration, money, pct, prefersReducedMotion } from "../design";
 import { useGame } from "../game/store";
@@ -43,6 +43,9 @@ function numbersFor(garden, plan, wi, key) {
     const whatIf = wi.trying
       ? ` What if you paid ${money(wi.extra)} extra (not saved): ${shown.payoffDate ? `cleared by ${shown.payoffDate}` : "still no cleared date"}.`
       : "";
+    const placed = wi.placed[i] ?? 0;
+    const fit =
+      placed >= w.patches ? "" : placed === 0 ? " The beds are already full of other debts' patches, so these are counted here instead of drawn." : ` The beds hold ${placed} of them; the rest are counted here instead of drawn.`;
     const outlined = soon ? ` ${soon} of ${w.patches} ${soon === 1 ? "patch is" : "patches are"} outlined: cleared within ${LOOKAHEAD_MONTHS} months ${planWords(wi)}.` : "";
     const kind = w.thorny ? "thorny bramble" : "weed";
     const cleared = w.payoffDate
@@ -51,7 +54,7 @@ function numbersFor(garden, plan, wi, key) {
     return (
       `${w.name}: ${w.patches} ${kind} ${w.patches === 1 ? "patch" : "patches"}. ` +
       `Balance ${money(w.balance)} at ${pct(w.apr, 1)} APR, minimum ${money(w.minPayment)} a month. ` +
-      `One patch for every ${money(DEBT_PER_WEED)} owed, up to ${MAX_WEEDS_PER_DEBT}${w.thorny ? `; debts at ${pct(HIGH_INTEREST_APR)} APR or more grow brambles` : ""}. ${cleared}${whatIf}${outlined} ${ASSUME}`
+      `One patch for every ${money(DEBT_PER_WEED)} owed, up to ${MAX_WEEDS_PER_DEBT}${w.thorny ? `; debts at ${pct(HIGH_INTEREST_APR)} APR or more grow brambles` : ""}. ${cleared}${whatIf}${outlined}${fit} ${ASSUME}`
     );
   }
   const e = garden.byId[id];
@@ -157,6 +160,16 @@ const Plants = memo(function Plants({ garden, layout, ghosts, ghostNote, reduced
   );
 });
 
+/** A value that only catches up once it has stopped changing for `ms`. */
+function useSettled(value, ms) {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return settled;
+}
+
 /**
  * The countdown to the debt-free date on the saved plan (a countdown, not a progress meter), and the
  * "What if you paid $X extra?" slider. The slider is a what-if: it outlines what that plan would clear and
@@ -174,6 +187,7 @@ function HarvestClock({ season, plan, wi, saved, onTry, onSave, onReset, status 
     const vs = sooner > 0 ? `, ${duration(sooner)} sooner than` : sooner < 0 ? `, ${duration(-sooner)} later than` : ", the same as";
     result = `What-if, not saved: ${when}${wi.shown.date && saved.date ? `${vs} your saved plan (${saved.date})` : ""}. ${ghostCount} outlined ${ghostCount === 1 ? "patch" : "patches"}: cleared within ${LOOKAHEAD_MONTHS} months.`;
   }
+  const settledResult = useSettled(result, 700);
   return (
     <section className="gs-clock" aria-labelledby="gs-clock-title">
       <div className="gs-clock__head">
@@ -190,13 +204,17 @@ function HarvestClock({ season, plan, wi, saved, onTry, onSave, onReset, status 
       <p className="gs-clock__note">
         {harvest
           ? "No debt to clear, so it's harvest time already."
-          : `Your debt-free date on your saved plan (${money(plan.extraDebt)} extra a month). A countdown, not a progress meter.`}
+          : saved.date
+            ? `Your debt-free date on your saved plan (${money(plan.extraDebt)} extra a month). A countdown, not a progress meter.`
+            : `On your saved plan (${money(plan.extraDebt)} extra a month), payments don't catch up with the interest yet, so there's no Harvest Festival date. The slider below shows what would set one.`}
       </p>
       {!harvest && (
         <div className="gs-whatif">
           <Slider label={`What if you paid ${money(wi.extra)} extra?`} value={wi.extra} min={0} max={1500} step={25} format={money} hint="a month" onChange={onTry} />
           {wi.trying && <p className="gs-whatif__tag">What-if · not saved</p>}
-          <p className="gs-whatif__result" aria-live="polite">{result}</p>
+          <p className="gs-whatif__result">{result}</p>
+          {/* Read aloud once the slider settles, not at every $25 step (the slider itself reads its amount). */}
+          <p className="ps-sr-only" aria-live="polite">{settledResult}</p>
           <p className="gs-clock__note">{ASSUME}</p>
           {wi.trying && (
             <div className="gs-whatif__actions">
@@ -238,7 +256,8 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
     () => new Set(layout.weeds.filter((w) => (shown.debts[w.debt]?.patchMonths[w.k] ?? Infinity) <= LOOKAHEAD_MONTHS).map((w) => `${w.x}-${w.y}`)),
     [layout, shown]
   );
-  const wi = { trying, extra, shown, ghosts };
+  const placed = useMemo(() => layout.weeds.reduce((acc, w) => ({ ...acc, [w.debt]: (acc[w.debt] ?? 0) + 1 }), {}), [layout]);
+  const wi = { trying, extra, shown, ghosts, placed };
 
   // The text box holds either a line of its own or the key of an element, whose numbers stay live
   // while the slider moves (shown instantly then, rather than re-typed on every step).
@@ -319,7 +338,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
 
   const bottomScreen = (
     <div className="gw-panel" ref={bottomRef}>
-      <TextBox key={messageText} text={messageText} speaker={message.speaker} font={message.font} instant={instant || message.instant} />
+      <TextBox key={messageText} text={messageText} speaker={message.speaker} font={message.font} instant={instant || message.instant} announce={!message.instant} />
       <HarvestClock season={garden.byId.season} plan={plan} wi={wi} saved={saved} onTry={onTry} onSave={onSave} onReset={onReset} status={status} />
       {!profile.fromSurvey && <p className="gs-sample">These are sample numbers. Finish the survey to grow your own garden.</p>}
       <p className="gw-where">
@@ -328,6 +347,19 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
       <WalkControls walker={walker} interact={stableInteract} />
       <h3 className="gw-panel__title" id="gs-guide-title">Garden guide · show the numbers</h3>
       <GuideList label="Garden guide: pick something to see its numbers" items={guide} columns={bottom.w >= 520 ? 3 : 2} onSelect={onPick} autoFocus={false} className="gw-goto" />
+      {/* The whole garden as text, every number included, so nothing needs to be found by walking. */}
+      <details className="gs-all">
+        <summary>The whole garden in words</summary>
+        <p>{garden.description}</p>
+        <dl>
+          {guide.map((item) => (
+            <div key={item.key}>
+              <dt>{item.label}</dt>
+              <dd>{numbersFor(garden, plan, wi, item.key)}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </div>
   );
 
