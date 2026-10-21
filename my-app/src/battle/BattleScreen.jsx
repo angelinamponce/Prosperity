@@ -15,6 +15,7 @@ import { SPROUT_BATTLE, SPROUT_PALETTE } from "../world/sprites";
 import { FOES, pickFoe } from "./foes";
 import { GLOSSARY } from "../dashboard/glossary";
 import { FoeSprite } from "./sprites";
+import { setSoundEnabled, sfx } from "../world/sound";
 import "./battle.css";
 
 // A wild encounter has as many questions as the Misconception has strength.
@@ -108,12 +109,14 @@ function Battle({ game, profile, metrics, query, given, demo, keeper, fromGarden
     const extra = [];
     if (info.level > seen.current.level) {
       extra.push(say(`Sprout grew to level ${info.level}!`));
+      sfx("levelup");
       setGlow((n) => n + 1);
     }
     const earned = BADGES.filter((b) => game.progress.badges[b.id]);
     if (earned.length > seen.current.badges) {
       const newest = [...earned].sort((a, b) => game.progress.badges[b.id].at - game.progress.badges[a.id].at)[0];
       extra.push(say(`You earned the ${newest.name} badge!`));
+      sfx("badge");
     }
     seen.current = { level: info.level, badges: earned.length };
     if (extra.length) setTalk((t) => ({ ...t, lines: [...t.lines, ...extra] }));
@@ -144,10 +147,12 @@ function Battle({ game, profile, metrics, query, given, demo, keeper, fromGarden
         const passed = sum.correct >= KEEPER.pass;
         game.dispatch({ type: "keeperResult", topic: setup.topic, firstTry: sum.correct, total: sum.total });
         setEnding(passed ? "passed" : "tried");
+        if (passed) sfx("festival");
         return speak([read(keeperVerdict(setup.topic, sum.correct, sum.total))], "end");
       }
       if (strength === 0) {
         setEnding("befriended");
+        sfx("badge");
         game.dispatch({ type: "befriend", id: foe.id, name: foe.name });
         return speak([say(`${foe.name} ${foe.befriend}`), say(`You befriended ${foe.name}!`)], "end");
       }
@@ -192,6 +197,7 @@ function Battle({ game, profile, metrics, query, given, demo, keeper, fromGarden
       setStrength((n) => n - 1);
       setXpWon((x) => x + preview.xp + (newWord ? XP.termLearned : 0));
       setFx((f) => ({ n: f.n + 1, kind: "hit" }));
+      sfx("correct");
       speak(
         [
           say("Sprout thinks it through…"),
@@ -205,6 +211,7 @@ function Battle({ game, profile, metrics, query, given, demo, keeper, fromGarden
       );
     } else {
       setFx((f) => ({ n: f.n + 1, kind: "wilt" }));
+      sfx("learn");
       speak(
         [
           say("Not quite! Sprout wilts a little…"),
@@ -292,11 +299,18 @@ function Battle({ game, profile, metrics, query, given, demo, keeper, fromGarden
           items={[
             { key: "resume", label: "Resume" },
             { key: "instant", label: `Instant text: ${game.progress.settings.instantText ? "On" : "Off"}`, sub: "Show whole lines at once" },
+            { key: "sound", label: `Sound effects: ${game.progress.settings.sound ? "On" : "Off"}`, sub: "Short, quiet sounds" },
             { key: "leave", label: "Leave battle", sub: "No penalty" },
           ]}
           onSelect={(k) => {
             if (k === "resume") setPaused(false);
             if (k === "instant") game.setSetting("instantText", !game.progress.settings.instantText);
+            if (k === "sound") {
+              const on = !game.progress.settings.sound;
+              game.setSetting("sound", on);
+              setSoundEnabled(on);
+              if (on) sfx("save");
+            }
             if (k === "leave") onExit();
           }}
           onBack={() => setPaused(false)}

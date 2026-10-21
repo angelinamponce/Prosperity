@@ -14,6 +14,7 @@ import { ListMenu } from "./ListMenu";
 import { PixelArt } from "./PixelArt";
 import { ClassicViewButton } from "./GardenWorld";
 import { DEX_ART, DEX_PALETTE, SEED_PACKET } from "./dexArt";
+import { sfx } from "./sound";
 import "./dex.css";
 
 const EntryList = memo(ListMenu);
@@ -67,6 +68,7 @@ export default function DexScene({ profile, metrics, plan, go }) {
   };
   const plant = () => {
     game?.learnTerm(plantKey, word.title);
+    sfx("badge");
     setJustPlanted(plantKey);
   };
 

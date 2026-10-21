@@ -101,6 +101,9 @@
 .gm-freeze.is-empty { background: transparent; border-style: dashed; border-color: var(--ps-border-strong); color: var(--ps-ink-3); }
 
 
+/* Garden mode settings on the Progress page */
+.gm-settings { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ps-space-2) var(--ps-space-3); }
+
 /* Money words as the Garden Dex, and the befriended Misconceptions */
 .gm-dex, .gm-foes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--ps-space-2); }
 .gm-dex li, .gm-foes li { padding: 10px 12px; border-radius: var(--ps-radius-md); border: 1px solid var(--ps-border); background: var(--ps-surface); }

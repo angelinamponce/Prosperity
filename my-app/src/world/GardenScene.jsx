@@ -16,6 +16,7 @@ import { WorldMap, useBox, useStable } from "./WorldMap";
 import { ClassicViewButton } from "./GardenWorld";
 import { StartButton, StartMenu, useStartMenu } from "./StartMenu";
 import { Almanac } from "./Almanac";
+import { sfx } from "./sound";
 import { BEDS, BORDER, GARDEN, GARDEN_SPAWN, GATE, GREENHOUSE, SIGN, VISITOR_SPOT, elementAt, layoutGarden } from "./gardenMap";
 import { ART, GreenhouseArt, Tile } from "./gardenArt";
 import { SKIES, forecast, forecastText } from "../game/weather";
@@ -355,6 +356,11 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
   // Fast-forward to Harvest Festival: a frame of the plan shown, `lapse.t` months from now.
   const [lapse, setLapse] = useState(null); // { t, playing }
   const frame = useMemo(() => (lapse ? lapseFrame({ ahead: shown, profile, m: metrics, t: lapse.t }) : null), [lapse, shown, profile, metrics]);
+  // A short festival tune when the fast-forward reaches the Harvest Festival (if sound is on).
+  const festival = Boolean(frame?.done);
+  useEffect(() => {
+    if (festival) sfx("festival");
+  }, [festival]);
   useEffect(() => {
     if (!lapse?.playing) return undefined;
     const id = setInterval(() => {
@@ -381,6 +387,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
     setMessage((m) => (m.key ? { ...m, instant: true } : m));
   };
   const onSave = () => {
+    sfx("save");
     setPlan({ extraDebt: extra });
     setStatus(`Saved. Your plan now pays ${money(extra)} extra a month (kept in this browser), and the Classic Debt page shows the same dates.`);
   };

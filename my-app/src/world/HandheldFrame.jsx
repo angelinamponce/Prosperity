@@ -1,3 +1,6 @@
+import { useEffect } from "react";
+import { useGame } from "../game/store";
+import { setSoundEnabled } from "./sound";
 import "./world.css";
 
 /**
@@ -8,6 +11,13 @@ import "./world.css";
  * keyboard and screen-reader users reach Classic View or Pause first; CSS keeps it between the screens.
  */
 export function HandheldFrame({ top, bottom, toolbar, topLabel, bottomLabel, paused }) {
+  // Sound effects follow the player's setting (off by default) and only while a Garden-mode screen is open.
+  const game = useGame();
+  const soundOn = Boolean(game?.progress.settings.sound);
+  useEffect(() => {
+    setSoundEnabled(soundOn);
+    return () => setSoundEnabled(false);
+  }, [soundOn]);
   return (
     <div className={`px-root hh${paused ? " is-paused" : ""}`}>
       <div className="hh__device">

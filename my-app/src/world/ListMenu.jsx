@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { sfx } from "./sound";
 
 /**
  * A classic list menu with an arrow cursor. One tab stop; arrow keys move the cursor (in a grid when
@@ -20,6 +21,7 @@ export function ListMenu({ items, columns = 1, onSelect, onBack, label, autoFocu
   const move = (to) => {
     const n = items.length;
     const i = ((to % n) + n) % n;
+    if (i !== cursor) sfx("move");
     setCursor(i);
     refs.current[i]?.focus();
   };
@@ -39,6 +41,7 @@ export function ListMenu({ items, columns = 1, onSelect, onBack, label, autoFocu
     } else if (e.key === "Escape" && onBack) {
       e.preventDefault();
       e.stopPropagation();
+      sfx("back");
       onBack();
     }
   };
@@ -56,7 +59,11 @@ export function ListMenu({ items, columns = 1, onSelect, onBack, label, autoFocu
           aria-disabled={item.disabled || undefined}
           onFocus={() => setCursor(i)}
           onMouseEnter={() => !item.disabled && setCursor(i)}
-          onClick={() => !item.disabled && onSelect(item.key)}
+          onClick={() => {
+            if (item.disabled) return;
+            sfx("select");
+            onSelect(item.key);
+          }}
         >
           <span className="lm__cursor" aria-hidden>▶</span>
           <span className="lm__body">

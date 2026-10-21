@@ -5,6 +5,7 @@ import { useGame } from "../game/store";
 import { GLOSSARY } from "../dashboard/glossary";
 import { TextBox } from "./TextBox";
 import { ListMenu } from "./ListMenu";
+import { setSoundEnabled, sfx } from "./sound";
 
 /** Open/close state for the Start menu. Closing puts focus back on the Start button. */
 export function useStartMenu() {
@@ -50,6 +51,7 @@ export function StartMenu({ go, onClose, returnTo, battleBack, missionsLeft }) {
           label="Settings"
           className="gw-goto"
           items={[
+            { key: "sound", label: `Sound effects: ${s.sound ? "on" : "off"}`, sub: "Short, quiet sounds for menus and big moments" },
             { key: "instantText", label: `Instant text: ${s.instantText ? "on" : "off"}`, sub: "Show whole lines at once instead of typing them out" },
             { key: "dpad", label: `On-screen D-pad: ${dpad ? "on" : "off"}`, sub: "Arrow buttons for walking on touch screens" },
             { key: "encounters", label: `Tall-grass battles: ${s.encounters !== false ? "on" : "off"}`, sub: "Whether the tall grass ever rustles (it always asks first)" },
@@ -57,13 +59,20 @@ export function StartMenu({ go, onClose, returnTo, battleBack, missionsLeft }) {
           ]}
           onSelect={(k) => {
             if (k === "back") return setPage("main");
+            if (k === "sound") {
+              const on = !s.sound;
+              game?.setSetting("sound", on);
+              // A small chime so you know it's on.
+              setSoundEnabled(on);
+              return on && sfx("save");
+            }
             if (k === "dpad") return game?.setSetting("dpad", !dpad);
             if (k === "encounters") return game?.setSetting("encounters", s.encounters === false);
             return game?.setSetting(k, !s[k]);
           }}
           onBack={() => setPage("main")}
         />
-        <p className="gw-start-note">Animations follow your device's reduced-motion setting. There's no game sound yet.</p>
+        <p className="gw-start-note">Animations follow your device's reduced-motion setting. Sound effects stay off unless you turn them on.</p>
       </div>
     );
   }
@@ -107,7 +116,7 @@ export function StartMenu({ go, onClose, returnTo, battleBack, missionsLeft }) {
           { key: "dex", label: "Garden Dex", sub: `${planted} of ${words.length} planted` },
           { key: "missions", label: "Missions", sub: missionsLeft ? `${missionsLeft} to try` : "Today's quest" },
           { key: "battle", label: "Quick battle", sub: "3 questions, picked for you" },
-          { key: "settings", label: "Settings", sub: "Text, D-pad, tall grass" },
+          { key: "settings", label: "Settings", sub: "Sound, text, D-pad, tall grass" },
           { key: "save", label: "Save", sub: "Saved automatically" },
           { key: "close", label: "Close menu" },
         ]}

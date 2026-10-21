@@ -144,6 +144,14 @@ export default function Progress({ onReplayTour, profile, metrics, plan }) {
             ))}
           </ul>
         </Card>
+        <Card className="span-12 ps-enter" style={{ "--i": 3 }} title="Garden mode settings" subtitle="These change Garden mode only. The Classic dashboard never plays sounds.">
+          <div className="gm-settings">
+            <Button variant="secondary" size="sm" aria-pressed={Boolean(p.settings.sound)} onClick={() => game.setSetting("sound", !p.settings.sound)}>
+              Sound effects: {p.settings.sound ? "On" : "Off"}
+            </Button>
+            <span className="ps-small">Short, quiet, original sounds for menus, answers and big moments. Off unless you turn them on.</span>
+          </div>
+        </Card>
       </div>
 
       <div className="db-grid">

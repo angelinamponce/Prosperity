@@ -7,6 +7,7 @@ import { buildRecommendations } from "../dashboard/finance";
 import { DASHBOARD_TERMS, GLOSSARY } from "../dashboard/glossary";
 import { BANK } from "../quiz/bank";
 import { dueCounts } from "../quiz/select";
+import { sfx } from "./sound";
 import "./almanac.css";
 
 const WORDS = [...DASHBOARD_TERMS, ...Object.keys(GLOSSARY).filter((k) => !DASHBOARD_TERMS.includes(k))].map((key) => ({ key, ...GLOSSARY[key] }));
@@ -73,6 +74,7 @@ export function Almanac({ profile, metrics, plan, onMissions }) {
             className="al__open"
             onClick={() => {
               game.checkIn();
+              sfx("save");
               // The button goes away once checked in, so keep keyboard focus in the Almanac.
               nextRef.current?.focus();
             }}

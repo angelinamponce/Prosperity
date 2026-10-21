@@ -9,6 +9,7 @@ import { layoutGarden } from "./gardenMap";
 import { PlotMiniature } from "./PlotMiniature";
 import { StartButton, StartMenu, useStartMenu } from "./StartMenu";
 import { Almanac } from "./Almanac";
+import { sfx } from "./sound";
 import { buildRecommendations, gradeBreakdown } from "../dashboard/finance";
 import { HandheldFrame } from "./HandheldFrame";
 import { TextBox } from "./TextBox";
@@ -152,6 +153,7 @@ function TownScene({ go, from, profile, metrics, plan }) {
         if (r.rustle) {
           walker.stop();
           setRustle(true);
+          sfx("rustle");
           return setMessage({ text: "Something's rustling in the tall grass… A Misconception, maybe? Battle it, or keep walking.", speaker: null, font: "pixel" });
         }
       }

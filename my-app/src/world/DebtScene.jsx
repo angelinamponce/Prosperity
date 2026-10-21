@@ -11,6 +11,7 @@ import { ListMenu } from "./ListMenu";
 import { PixelArt } from "./PixelArt";
 import { SPROUT_BATTLE, SPROUT_PALETTE } from "./sprites";
 import { ClassicViewButton } from "./GardenWorld";
+import { sfx } from "./sound";
 import "../battle/battle.css";
 import "./debt.css";
 
@@ -49,6 +50,12 @@ export default function DebtScene({ profile, metrics, plan, setPlan, go, query }
     if (profile.fromSurvey) game.dispatch({ type: "noteDebts", names: debts.filter((d) => d.balance > 0).map((d) => d.name) });
   }, [game, profile.fromSurvey, debts]);
 
+  // A short festival tune for each real victory (if sound is on).
+  const winning = victories[0] ?? null;
+  useEffect(() => {
+    if (winning) sfx("festival");
+  }, [winning]);
+
   const [name, setName] = useState(() => {
     const wanted = query?.get("debt");
     return order.find((d) => d.name === wanted)?.name ?? order[0]?.name ?? null;
@@ -67,7 +74,10 @@ export default function DebtScene({ profile, metrics, plan, setPlan, go, query }
   const last = useRef(months);
   useEffect(() => {
     const t = setTimeout(() => {
-      if (months != null && last.current != null && months < last.current && !reduced) setHit((n) => n + 1);
+      if (months != null && last.current != null && months < last.current) {
+        sfx("hit");
+        if (!reduced) setHit((n) => n + 1);
+      }
       last.current = months;
     }, 350);
     return () => clearTimeout(t);
@@ -169,6 +179,7 @@ export default function DebtScene({ profile, metrics, plan, setPlan, go, query }
     ? `What-if, not saved: ${debt.name} gone by ${goneBy(shownHere)}${savedHere?.months != null && shownHere?.months != null ? `, ${shownHere.months < savedHere.months ? `${duration(savedHere.months - shownHere.months)} sooner than` : shownHere.months > savedHere.months ? `${duration(shownHere.months - savedHere.months)} later than` : "the same as"} your saved plan (${savedHere.date})` : ""}.`
     : `This is your saved plan: ${debt.name} gone by ${goneBy(savedHere)}.`;
   const save = () => {
+    sfx("save");
     setPlan({ extraDebt: extra, strategy });
     setStatus(`Saved. Your plan now pays ${money(extra)} extra a month, ${STRATEGY[strategy].toLowerCase()}. The Classic Debt page and your garden show the same dates.`);
   };
