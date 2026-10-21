@@ -168,7 +168,8 @@ function mulberry32(seed) {
 
 /**
  * Monte Carlo of portfolio value in today's dollars.
- * Returns yearly percentile bands, a few sample paths, and the chance of ending at or above `goal`.
+ * Returns yearly percentile bands, a few sample paths, the chance of ending at or above `goal`, and the
+ * chance of ending at or above half of it (the Garden-mode weather forecast uses both).
  */
 export function monteCarlo({ start, monthly, stockShare, years, goal, sims = 500, seed = 42, samplePaths = 24 }) {
   const rand = mulberry32(seed);
@@ -185,6 +186,7 @@ export function monteCarlo({ start, monthly, stockShare, years, goal, sims = 500
   const byYear = Array.from({ length: years + 1 }, () => new Float64Array(sims));
   const paths = [];
   let hits = 0;
+  let halfway = 0;
 
   for (let s = 0; s < sims; s += 1) {
     let bal = start;
@@ -197,6 +199,7 @@ export function monteCarlo({ start, monthly, stockShare, years, goal, sims = 500
     }
     if (path) paths.push(path);
     if (bal >= goal) hits += 1;
+    if (bal >= goal / 2) halfway += 1;
   }
 
   const pct = (arr, q) => arr[Math.min(arr.length - 1, Math.floor(q * arr.length))];
@@ -209,7 +212,7 @@ export function monteCarlo({ start, monthly, stockShare, years, goal, sims = 500
     bands.p75.push(pct(arr, 0.75));
     bands.p90.push(pct(arr, 0.9));
   }
-  return { bands, paths, successRate: hits / sims, expectedReturn: mu, volatility: vol };
+  return { bands, paths, successRate: hits / sims, halfwayRate: halfway / sims, expectedReturn: mu, volatility: vol };
 }
 
 export function monthsToTarget(current, target, monthly) {

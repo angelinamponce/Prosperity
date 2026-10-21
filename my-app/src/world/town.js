@@ -42,7 +42,7 @@ export const BUILDINGS = [
   { id: "gh-debt", kind: "greenhouse", topic: "debt", name: "Debt Greenhouse", x: 7, y: 10, w: 3, h: 2, door: { x: 8, y: 12 }, opens: "Keeper Bram: challenge and practice", go: "garden?scene=keeper&topic=debt" },
   { id: "gh-saving", kind: "greenhouse", topic: "saving", name: "Saving Greenhouse", x: 14, y: 10, w: 3, h: 2, door: { x: 15, y: 12 }, opens: "Keeper Maple: challenge and practice", go: "garden?scene=keeper&topic=saving" },
   { id: "gh-investing", kind: "greenhouse", topic: "investing", name: "Investing Greenhouse", x: 17, y: 10, w: 3, h: 2, door: { x: 18, y: 12 }, opens: "Keeper Rowan: challenge and practice", go: "garden?scene=keeper&topic=investing" },
-  { id: "weather", kind: "weather", name: "Weather Station", x: 21, y: 9, w: 2, h: 3, door: { x: 21, y: 12 }, opens: "Possible futures", go: "future" },
+  { id: "weather", kind: "weather", name: "Weather Station", x: 21, y: 9, w: 2, h: 3, door: { x: 21, y: 12 }, opens: "Weather forecast from 500 possible futures", go: "garden?scene=weather&return=garden%3Ffrom%3Dweather" },
 ];
 
 // The fenced plot by Home. Its contents come from the player's real numbers (Phase 8 grows it on the map).

@@ -17,6 +17,8 @@ import { ClassicViewButton } from "./GardenWorld";
 import { StartButton, StartMenu, useStartMenu } from "./StartMenu";
 import { BEDS, BORDER, GARDEN, GARDEN_SPAWN, GATE, GREENHOUSE, SIGN, VISITOR_SPOT, elementAt, layoutGarden } from "./gardenMap";
 import { ART, GreenhouseArt, Tile } from "./gardenArt";
+import { SKIES, forecast, forecastText } from "../game/weather";
+import "./weather.css";
 
 const GuideList = memo(ListMenu);
 const WORD_TOTAL = Object.keys(GLOSSARY).length;
@@ -58,6 +60,11 @@ function numbersFor(garden, plan, wi, key) {
       `One patch for every ${money(DEBT_PER_WEED)} owed, up to ${MAX_WEEDS_PER_DEBT}${w.thorny ? `; debts at ${pct(HIGH_INTEREST_APR)} APR or more grow brambles` : ""}. ${cleared}${whatIf}${outlined}${fit} ${ASSUME}`
     );
   }
+  if (id === "weather") {
+    const f = wi.weather;
+    if (f.none) return forecastText(f);
+    return `Forecast: ${SKIES[f.sky].label.toLowerCase()} is most common. ${forecastText(f)} It's weather, not a score: a storm may droop a few plants for a moment, but nothing in your garden is ever lost. Visit the Weather Station in town for what could brighten it.`;
+  }
   const e = garden.byId[id];
   const base = `${e.label}. ${e.title}: ${e.value}. ${e.calc}`;
   if (id === "season" && wi.trying && e.state !== "harvest") {
@@ -67,7 +74,7 @@ function numbersFor(garden, plan, wi, key) {
 }
 
 /** Everything growing in the garden, as buttons over the ground. Memoized: walking doesn't re-render it. */
-const Plants = memo(function Plants({ garden, layout, ghosts, ghostNote, reduced, onShow }) {
+const Plants = memo(function Plants({ garden, layout, ghosts, ghostNote, reduced, droop, onShow }) {
   const g = garden.byId;
   const click = (key, tile) => (e) => {
     e.stopPropagation();
@@ -78,7 +85,7 @@ const Plants = memo(function Plants({ garden, layout, ghosts, ghostNote, reduced
     <>
       {/* Crops on every bed tile that isn't weeds; their size follows the soil. */}
       {layout.crops.map((c) => (
-        <span key={`c${c.x}-${c.y}`} className="gs-tile" style={at(c.x, c.y)} onClick={click("soil", c)} aria-hidden>
+        <span key={`c${c.x}-${c.y}`} className={`gs-tile${droop && (c.x + c.y) % 3 === 0 ? " gs-droop" : ""}`} style={at(c.x, c.y)} onClick={click("soil", c)} aria-hidden>
           <Tile rows={ART.CROPS[c.tier]} />
         </span>
       ))}
@@ -244,6 +251,15 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
   );
   const layout = useMemo(() => layoutGarden(garden), [garden]);
   const start = useStartMenu();
+  // The forecast from the same 500 futures as the Weather Station. A storm droops a few plants for a
+  // moment when you arrive, then they stand back up; nothing is ever removed. Still with reduced motion.
+  const weather = useMemo(() => forecast(profile, metrics, plan), [profile, metrics, plan]);
+  const [droop, setDroop] = useState(!reduced && !weather.none && weather.sky === "stormy");
+  useEffect(() => {
+    if (!droop) return undefined;
+    const t = setTimeout(() => setDroop(false), 4000);
+    return () => clearTimeout(t);
+  }, [droop]);
 
   // The what-if starts at the saved plan and is forgotten when you leave the garden.
   const [extra, setExtra] = useState(plan.extraDebt);
@@ -259,7 +275,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
     [layout, shown]
   );
   const placed = useMemo(() => layout.weeds.reduce((acc, w) => ({ ...acc, [w.debt]: (acc[w.debt] ?? 0) + 1 }), {}), [layout]);
-  const wi = { trying, extra, shown, ghosts, placed };
+  const wi = { trying, extra, shown, ghosts, placed, weather };
 
   // The text box holds either a line of its own or the key of an element, whose numbers stay live
   // while the slider moves (shown instantly then, rather than re-typed on every step).
@@ -321,8 +337,9 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
       { key: "flowers", label: "Flower border", sub: garden.byId.flowers.label },
       { key: "visitors", label: "Visitors", sub: garden.byId.visitors.label },
       { key: "season", label: "Season sign", sub: garden.byId.season.label },
+      { key: "weather", label: "Weather", sub: weather.none ? "No forecast yet" : `${SKIES[weather.sky].label} is most common` },
     ],
-    [garden]
+    [garden, weather]
   );
 
   const top = (
@@ -330,11 +347,16 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
       world={GARDEN}
       walker={walker}
       reduced={reduced}
-      label={`Your garden. ${garden.description}`}
+      label={`Your garden. ${garden.description}${weather.none ? "" : ` Forecast: ${SKIES[weather.sky].label.toLowerCase()} is most common.`}`}
       onInteract={interact}
       onUnreachable={() => setMessage({ text: "Sprout can't get there. Try the grass or the path.", speaker: "Sprout", font: "pixel" })}
     >
-      <Plants garden={garden} layout={layout} ghosts={ghosts} ghostNote={planWords(wi)} reduced={reduced} onShow={onShow} />
+      <Plants garden={garden} layout={layout} ghosts={ghosts} ghostNote={planWords(wi)} reduced={reduced} droop={droop} onShow={onShow} />
+      {!weather.none && weather.sky !== "sunny" && (
+        <div className={`gs-sky gs-sky--${weather.sky}`} aria-hidden>
+          {weather.sky === "stormy" ? <div className="gs-rain" /> : <div className="gs-cloud" />}
+        </div>
+      )}
     </WorldMap>
   );
 
