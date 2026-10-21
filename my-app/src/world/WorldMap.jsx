@@ -3,6 +3,8 @@ import { PixelArt } from "./PixelArt";
 import { TILE } from "./town";
 import { drawGround, pixelScale } from "./ground";
 import { SPROUT_FRAMES, SPROUT_PALETTE } from "./sprites";
+import { useGame } from "../game/store";
+import { PHASES, lightPhase } from "../game/daylight";
 
 // Measures an element (falls back to the window where ResizeObserver isn't available).
 export function useBox() {
@@ -32,6 +34,22 @@ export function useStable(fn) {
   return useCallback((...args) => ref.current(...args), []);
 }
 
+/**
+ * Day and night for the map, from local time: { phase, label }, or null when the player has turned it
+ * off. Rechecked each minute; with reduced motion it's worked out once and stays fixed.
+ */
+export function useDaylight(reduced) {
+  const game = useGame();
+  const on = game?.progress.settings.daylight !== false;
+  const [phase, setPhase] = useState(() => lightPhase());
+  useEffect(() => {
+    if (!on || reduced) return undefined;
+    const id = setInterval(() => setPhase(lightPhase()), 60000);
+    return () => clearInterval(id);
+  }, [on, reduced]);
+  return on ? { phase, label: PHASES[phase].label } : null;
+}
+
 const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right", W: "up", S: "down", A: "left", D: "right" };
 
 /**
@@ -40,7 +58,7 @@ const KEYS = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: 
  * Keys walk Sprout only while the map has focus; tapping the ground walks there; Enter or Space on the
  * map itself calls `onInteract`.
  */
-export function WorldMap({ world, walker, reduced, label, onInteract, onUnreachable, emote, children }) {
+export function WorldMap({ world, walker, reduced, label, onInteract, onUnreachable, emote, light, children }) {
   const [screenRef, screen] = useBox();
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
@@ -94,7 +112,7 @@ export function WorldMap({ world, walker, reduced, label, onInteract, onUnreacha
   const sproutRows = SPROUT_FRAMES[facing === "right" ? "left" : facing][frame];
 
   return (
-    <div className="gw" ref={screenRef}>
+    <div className={`gw${light ? ` gw--${light.phase}` : ""}${reduced ? " gw--still" : ""}`} ref={screenRef}>
       <div
         className={`gw__map${focused ? " is-focused" : ""}`}
         tabIndex={0}
@@ -118,6 +136,14 @@ export function WorldMap({ world, walker, reduced, label, onInteract, onUnreacha
           style={{ width: mapW * scale, height: mapH * scale, left: Math.round((screen.w - mapW * scale) / 2), top: Math.round((screen.h - mapH * scale) / 2) }}
         >
           <canvas ref={canvasRef} className="gw__ground" style={{ width: mapW * scale, height: mapH * scale }} aria-hidden />
+          {/* Lamp glows at each door in the evening: under the buildings, so they never cover anything. */}
+          {light && (light.phase === "dusk" || light.phase === "night") && (
+            <div className="gw__lamps" style={{ width: mapW, height: mapH, transform: `scale(${scale})` }} aria-hidden>
+              {world.places.filter((p) => p.door).map((p) => (
+                <span key={p.id} className="gw-lamp" style={{ left: p.door.x * TILE + TILE / 2, top: p.door.y * TILE }} />
+              ))}
+            </div>
+          )}
           <div className="gw__layer" style={{ width: mapW, height: mapH, transform: `scale(${scale})` }} onClick={onGroundClick}>
             {target && <span className="gw-marker" style={{ left: target.x * TILE, top: target.y * TILE }} aria-hidden />}
             {children}

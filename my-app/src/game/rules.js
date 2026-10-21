@@ -207,7 +207,7 @@ export function emptyProgress() {
     // Only a debt that really reaches $0 in the survey gets a victory; nothing here is ever invented.
     debts: { seen: {}, cleared: {} },
     // Classic is the default view; Garden mode arrives in a later phase.
-    settings: { view: "classic", sound: false, instantText: false, speedRound: false, encounters: true },
+    settings: { view: "classic", sound: false, instantText: false, speedRound: false, encounters: true, daylight: true },
   };
 }
 

@@ -19,7 +19,7 @@ import { BUILDINGS, PLOT, SPAWN, TILE, TOWN } from "./town";
 import { facingPlace } from "./movement";
 import { useWalker } from "./useWalker";
 import { WalkControls } from "./DPad";
-import { WorldMap, useBox, useStable } from "./WorldMap";
+import { WorldMap, useBox, useDaylight, useStable } from "./WorldMap";
 import "./garden.css";
 
 // Each scene loads only when it's opened: the plot, the Library (Dex), a Greenhouse (keeper), or the
@@ -130,6 +130,7 @@ function TownScene({ go, from, profile, metrics, plan }) {
   );
   // Tall grass: it may rustle, and the game asks before any battle. Off in settings means it never rustles.
   const encountersOn = game?.progress.settings.encounters !== false;
+  const light = useDaylight(reduced);
   const encounter = useRef(newEncounterState());
   const [rustle, setRustle] = useState(false);
 
@@ -215,6 +216,7 @@ function TownScene({ go, from, profile, metrics, plan }) {
       walker={walker}
       reduced={reduced}
       emote={rustle ? "!" : null}
+      light={light}
       label="Town map"
       onInteract={interact}
       onUnreachable={() => setMessage({ text: "Sprout can't get there. Try somewhere on the grass or the path.", speaker: "Sprout", font: "pixel" })}
@@ -241,7 +243,7 @@ function TownScene({ go, from, profile, metrics, plan }) {
         />
       )}
       <p className="gw-where">
-        <EnvironmentOutlined aria-hidden /> Sprout is {TOWN.describe(walker.pos)}.
+        <EnvironmentOutlined aria-hidden /> Sprout is {TOWN.describe(walker.pos)}.{light ? ` ${light.label}.` : ""}
       </p>
       <WalkControls walker={walker} interact={stableInteract} />
       <button type="button" className="gw-controls__toggle gw-grass-toggle" aria-pressed={encountersOn} onClick={toggleEncounters}>

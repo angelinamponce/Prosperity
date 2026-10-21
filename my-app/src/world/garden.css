@@ -68,6 +68,19 @@
 .gw-sprout svg { width: 16px; height: 16px; }
 .gw-sprout__flip { transform: scaleX(-1); }
 
+/* Day and night: only the pixel art is tinted (ground, buildings, plants, Sprout). Name tags, banners,
+   bubbles and every button's text are never filtered, so their contrast is the same at night. */
+.gw__ground, .gw-bld__art, .gw-mini, .gw-sprout svg, .gs-tile svg, .gs-tall svg { transition: filter 3s ease; }
+.gw--still .gw__ground, .gw--still .gw-bld__art, .gw--still .gw-mini, .gw--still .gw-sprout svg, .gw--still .gs-tile svg, .gw--still .gs-tall svg { transition: none; }
+.gw--morning :is(.gw__ground, .gw-bld__art, .gw-mini, .gw-sprout svg, .gs-tile svg, .gs-tall svg) { filter: sepia(0.12) saturate(1.08) brightness(1.03); }
+.gw--dusk :is(.gw__ground, .gw-bld__art, .gw-mini, .gw-sprout svg, .gs-tile svg, .gs-tall svg) { filter: sepia(0.28) saturate(1.1) brightness(0.9) hue-rotate(-10deg); }
+.gw--night :is(.gw__ground, .gw-bld__art, .gw-mini, .gs-tile svg, .gs-tall svg) { filter: brightness(0.66) saturate(0.78) hue-rotate(12deg); }
+/* Sprout stays a little brighter than the night around it, so it's always easy to find. */
+.gw--night .gw-sprout svg { filter: brightness(0.85); }
+.gw__lamps { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; }
+.gw-lamp { position: absolute; width: 44px; height: 30px; margin-left: -22px; margin-top: -8px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255, 214, 140, 0.55), rgba(255, 214, 140, 0)); }
+.gw--dusk .gw-lamp { opacity: 0.55; }
+
 /* A speech bubble over Sprout ("!" when the tall grass rustles). */
 .gw-emote { position: absolute; left: 50%; bottom: calc(100% + 1px); transform: translateX(-50%); min-width: 9px; padding: 0 2px; border: 1px solid var(--px-frame); border-radius: 3px; background: #ffffff; color: var(--px-ink); font-family: var(--px-font); font-size: 8px; line-height: 9px; text-align: center; }
 

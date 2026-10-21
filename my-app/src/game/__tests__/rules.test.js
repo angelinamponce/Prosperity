@@ -159,7 +159,7 @@ describe("normalizeProgress", () => {
     expect(p.terms).toEqual({});
     expect(p.streak.count).toBe(3);
     expect(p.streak.freezes).toBe(START_FREEZES);
-    expect(p.settings).toEqual({ view: "classic", sound: true, instantText: false, speedRound: false, encounters: true });
+    expect(p.settings).toEqual({ view: "classic", sound: true, instantText: false, speedRound: false, encounters: true, daylight: true });
     expect(p.quiz).toEqual({ q: {}, topics: {}, befriended: {}, keepers: {} });
   });
 });

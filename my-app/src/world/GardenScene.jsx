@@ -12,7 +12,7 @@ import { TILE } from "./town";
 import { DIRS } from "./movement";
 import { useWalker } from "./useWalker";
 import { WalkControls } from "./DPad";
-import { WorldMap, useBox, useStable } from "./WorldMap";
+import { WorldMap, useBox, useDaylight, useStable } from "./WorldMap";
 import { ClassicViewButton } from "./GardenWorld";
 import { StartButton, StartMenu, useStartMenu } from "./StartMenu";
 import { Almanac } from "./Almanac";
@@ -327,6 +327,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
   );
   const layout = useMemo(() => layoutGarden(garden), [garden]);
   const start = useStartMenu();
+  const light = useDaylight(reduced);
   // The forecast from the same 500 futures as the Weather Station. A storm droops a few plants for a
   // moment when you arrive, then they stand back up; nothing is ever removed. Still with reduced motion.
   const weather = useMemo(() => forecast(profile, metrics, plan), [profile, metrics, plan]);
@@ -442,6 +443,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
       world={GARDEN}
       walker={walker}
       reduced={reduced}
+      light={light}
       label={`Your garden. ${garden.description}${weather.none ? "" : ` Forecast: ${SKIES[weather.sky].label.toLowerCase()} is most common.`}`}
       onInteract={interact}
       onUnreachable={() => setMessage({ text: "Sprout can't get there. Try the grass or the path.", speaker: "Sprout", font: "pixel" })}
@@ -510,7 +512,7 @@ export default function GardenScene({ profile, metrics, plan, setPlan, go }) {
       )}
       {!profile.fromSurvey && <p className="gs-sample">These are sample numbers. Finish the survey to grow your own garden.</p>}
       <p className="gw-where">
-        <EnvironmentOutlined aria-hidden /> Sprout is {GARDEN.describe(walker.pos)}. The gate back to town is at the bottom.
+        <EnvironmentOutlined aria-hidden /> Sprout is {GARDEN.describe(walker.pos)}. The gate back to town is at the bottom.{light ? ` ${light.label}.` : ""}
       </p>
       <WalkControls walker={walker} interact={stableInteract} />
       <h3 className="gw-panel__title" id="gs-guide-title">Garden guide · show the numbers</h3>
