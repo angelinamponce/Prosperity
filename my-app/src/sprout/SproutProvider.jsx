@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { MAX_MESSAGE_LENGTH, streamSprout } from "./sproutClient";
+import { MAX_MESSAGE_LENGTH, checkSproutLive, streamSprout } from "./sproutClient";
 
 const SproutContext = createContext(null);
 const HISTORY_SENT = 20; // only the most recent turns go to the server
@@ -29,6 +29,8 @@ export function SproutProvider({ scope, getContext, getAccessToken, children }) 
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(() => loadHistory(storageKey));
   const [streaming, setStreaming] = useState(false);
+  // "checking" until we know whether the live server answers; "preview" means scripted replies.
+  const [mode, setMode] = useState("checking");
   const controller = useRef(null);
   const launcherRef = useRef(null);
   const contextRef = useRef(getContext);
@@ -45,6 +47,14 @@ export function SproutProvider({ scope, getContext, getAccessToken, children }) 
   }, [messages, storageKey]);
 
   useEffect(() => () => controller.current?.abort(), []);
+
+  useEffect(() => {
+    let alive = true;
+    checkSproutLive().then((live) => alive && setMode(live ? "live" : "preview"));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const updateLast = (fn) =>
     setMessages((ms) => {
@@ -74,7 +84,9 @@ export function SproutProvider({ scope, getContext, getAccessToken, children }) 
       controller.current = ac;
       try {
         const accessToken = (await tokenRef.current?.()) ?? null;
+        const live = await checkSproutLive();
         await streamSprout({
+          live,
           messages: history,
           context: contextRef.current?.(),
           accessToken,
@@ -106,8 +118,8 @@ export function SproutProvider({ scope, getContext, getAccessToken, children }) 
   }, []);
 
   const value = useMemo(
-    () => ({ open, setOpen, messages, streaming, ask, stop, clear, launcherRef }),
-    [open, messages, streaming, ask, stop, clear]
+    () => ({ open, setOpen, messages, streaming, mode, ask, stop, clear, launcherRef }),
+    [open, messages, streaming, mode, ask, stop, clear]
   );
   return <SproutContext.Provider value={value}>{children}</SproutContext.Provider>;
 }

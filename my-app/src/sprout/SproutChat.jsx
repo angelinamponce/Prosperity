@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import SproutMascot from "./SproutMascot";
 import SuggestedQuestions from "./SuggestedQuestions";
 import { useSprout } from "./SproutProvider";
-import { MAX_MESSAGE_LENGTH, USING_MOCK } from "./sproutClient";
+import { MAX_MESSAGE_LENGTH } from "./sproutClient";
 
 // Renders **bold**, paragraphs and "- " bullet lists as React nodes (never as HTML).
 function Inline({ text }) {
@@ -94,7 +94,7 @@ function Message({ m, onRetry }) {
 }
 
 export default function SproutChat({ starters = [], title = "Sprout" }) {
-  const { open, setOpen, messages, streaming, ask, stop, clear, launcherRef } = useSprout();
+  const { open, setOpen, messages, streaming, mode, ask, stop, clear, launcherRef } = useSprout();
   const [draft, setDraft] = useState("");
   const inputRef = useRef(null);
   const listRef = useRef(null);
@@ -193,7 +193,7 @@ export default function SproutChat({ starters = [], title = "Sprout" }) {
       </div>
 
       <form className="sp-composer" onSubmit={send}>
-        {USING_MOCK && <p className="sp-meta sp-meta--mock">Preview mode: replies are scripted examples.</p>}
+        {mode === "preview" && <p className="sp-meta sp-meta--mock">Preview mode: replies are scripted examples.</p>}
         <div className="sp-composer__row">
           <textarea
             ref={inputRef}
@@ -203,6 +203,10 @@ export default function SproutChat({ starters = [], title = "Sprout" }) {
             maxLength={MAX_MESSAGE_LENGTH}
             placeholder="Ask about your plan…"
             aria-label="Message Sprout"
+            // Grammarly's overlay covers the send button in this small box.
+            data-gramm="false"
+            data-gramm_editor="false"
+            data-enable-grammarly="false"
             aria-describedby={remaining < 200 ? "sp-count" : undefined}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {

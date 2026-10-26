@@ -4,7 +4,9 @@ import path from "path";
 import { useEffect } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { TextDecoder, TextEncoder } from "util";
 import { SproutChat, SproutLauncher, SproutMascot, SproutProvider, SuggestedQuestions, useSprout } from "..";
+import { resetSproutLiveCheck } from "../sproutClient";
 
 const STARTERS = ["What's my debt-free date if I pay $200 more a month?"];
 
@@ -18,7 +20,25 @@ function renderSprout(extra = null) {
   );
 }
 
-beforeEach(() => sessionStorage.clear());
+beforeEach(() => {
+  sessionStorage.clear();
+  resetSproutLiveCheck();
+  delete global.fetch;
+});
+
+/** Fakes the Sprout server: /status says live, /chat streams the given SSE events (or fails). */
+function fakeServer(chatEvents, { chatStatus = 200 } = {}) {
+  global.TextDecoder = global.TextDecoder ?? TextDecoder;
+  const calls = [];
+  global.fetch = jest.fn(async (url, init) => {
+    calls.push({ url, body: init?.body ? JSON.parse(init.body) : null });
+    if (url.endsWith("/api/sprout/status")) return { ok: true, json: async () => ({ live: true }) };
+    if (chatStatus !== 200) return { ok: false, status: chatStatus, json: async () => ({ error: "Sprout is helping a lot of people right now. Please try again in a minute." }) };
+    const chunks = chatEvents.map((ev) => new TextEncoder().encode(`data: ${JSON.stringify(ev)}\n\n`));
+    return { ok: true, body: { getReader: () => ({ read: async () => (chunks.length ? { value: chunks.shift(), done: false } : { done: true }) }) } };
+  });
+  return calls;
+}
 
 test("launcher opens and closes the panel with correct ARIA state", async () => {
   renderSprout();
@@ -96,6 +116,64 @@ test("messages over 1,000 characters are refused", async () => {
 
   userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
   expect(screen.getByRole("textbox", { name: "Message Sprout" })).toHaveAttribute("maxLength", "1000");
+});
+
+test("preview notice shows when there's no live server", async () => {
+  renderSprout();
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  expect(await screen.findByText(/Preview mode: replies are scripted examples/)).toBeInTheDocument();
+});
+
+test("live mode: no preview notice, streams text and shows the calculator that actually ran", async () => {
+  const calls = fakeServer([
+    { type: "tool", name: "simulate_debt_payoff", label: "Debt payoff calculator", summary: "extra $300/mo · highest interest first" },
+    { type: "text", text: "You'd be debt-free by " },
+    { type: "text", text: "**Jun 2029**." },
+    { type: "done" },
+  ]);
+  renderSprout();
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  const input = screen.getByRole("textbox", { name: "Message Sprout" });
+  expect(input).toHaveAttribute("data-gramm", "false");
+  expect(input).toHaveAttribute("data-enable-grammarly", "false");
+  userEvent.type(input, "If I put $300 extra toward debt, when am I debt-free?{enter}");
+
+  const log = await screen.findByRole("list", { name: "Conversation with Sprout" });
+  await waitFor(() => expect(log).toHaveTextContent("You'd be debt-free by Jun 2029."));
+  expect(within(log).getByText("Debt payoff calculator")).toBeInTheDocument();
+  expect(within(log).getByText(/extra \$300\/mo/)).toBeInTheDocument();
+  expect(screen.queryByText(/Preview mode/)).not.toBeInTheDocument();
+  const chat = calls.find((c) => c.url.endsWith("/api/sprout/chat"));
+  expect(chat.body.messages).toEqual([{ role: "user", content: "If I put $300 extra toward debt, when am I debt-free?" }]);
+});
+
+test("live mode: a failed request shows a friendly retry message, never a raw error", async () => {
+  fakeServer([], { chatStatus: 503 });
+  renderSprout();
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  userEvent.type(screen.getByRole("textbox", { name: "Message Sprout" }), "hello{enter}");
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("Sprout is helping a lot of people right now.");
+  expect(within(alert).getByRole("button", { name: "Try again" })).toBeInTheDocument();
+});
+
+test("live mode: a reply cut off mid-stream ends with the retry message", async () => {
+  fakeServer([{ type: "text", text: "Half a sen" }]);
+  renderSprout();
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  userEvent.type(screen.getByRole("textbox", { name: "Message Sprout" }), "hello{enter}");
+  expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't answer just now/);
+});
+
+test("the reset button clears the conversation", async () => {
+  fakeServer([{ type: "text", text: "Hi there!" }, { type: "done" }]);
+  renderSprout();
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  userEvent.type(screen.getByRole("textbox", { name: "Message Sprout" }), "hello{enter}");
+  await screen.findByText("Hi there!");
+  userEvent.click(screen.getByRole("button", { name: "Start a new conversation" }));
+  expect(screen.queryByRole("list", { name: "Conversation with Sprout" })).not.toBeInTheDocument();
+  expect(screen.getByText("Hi, I'm Sprout!")).toBeInTheDocument();
 });
 
 test("mascot is decorative unless given a label", () => {

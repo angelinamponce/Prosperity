@@ -19,10 +19,9 @@ import { DASHBOARD_TERMS } from "../dashboard/glossary";
 const Tour = lazy(() => import("../dashboard/tutorial/Tour"));
 
 const SPROUT_STARTERS = [
-  "What's my debt-free date if I pay $200 more a month?",
-  "How much is my 401(k) match worth?",
-  "Am I on track with my emergency fund?",
-  "What should I focus on first?",
+  "How fast can I pay off my debt?",
+  "Is my emergency fund enough?",
+  "How much should I put in my 401(k)?",
 ];
 
 const PAGES = [
