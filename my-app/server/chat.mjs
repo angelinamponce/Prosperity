@@ -1,0 +1,249 @@
+// POST /api/sprout/chat: streams Sprout's reply as server-sent events, running Prosperity's calculators as Claude tools.
+// GET /api/sprout/status: tells the browser whether the live assistant is available (no key means scripted preview mode).
+//
+// Events (one JSON object per "data:" line), the same ones the scripted preview emits:
+//   { type: "text", text } | { type: "tool", name, label, summary } | { type: "done" } | { type: "error", message }
+
+import Anthropic from "@anthropic-ai/sdk";
+import { TOOL_DEFS, planSnapshot, readContext, runTool, toolPill } from "../src/sprout/tools.js";
+import { SPROUT_SYSTEM, snapshotBlock } from "./prompts/sprout.mjs";
+import { createRateLimiter } from "./rateLimit.mjs";
+
+export const MAX_MESSAGE_LENGTH = 1000; // matches the chat box
+export const HISTORY_SENT = 20;
+const MAX_BODY_BYTES = 64 * 1024;
+const MAX_REPLY_LENGTH = 8000; // earlier Sprout replies sent back as history
+const MAX_TOOL_ROUNDS = 4;
+
+const FRIENDLY = {
+  generic: "Sprout couldn't answer just now. Please try again in a moment.",
+  busy: "Sprout is helping a lot of people right now. Please try again in a minute.",
+  slowDown: "You're sending messages quickly. Take a breath and try again in a minute.",
+  tooLong: `Please keep your message under ${MAX_MESSAGE_LENGTH.toLocaleString("en-US")} characters.`,
+  bad: "Sprout couldn't read that message. Please try again.",
+  offline: "Sprout's live answers aren't turned on here yet.",
+  refused: "Sprout can't help with that one. Try asking about your budget, debt, savings or investing.",
+};
+
+class BadRequest extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/** Keeps the last turns, checks lengths, and makes sure the history starts and ends with the user. */
+export function cleanMessages(raw) {
+  if (!Array.isArray(raw)) throw new BadRequest(FRIENDLY.bad);
+  const msgs = raw.slice(-HISTORY_SENT).map((m) => {
+    const role = m?.role === "assistant" ? "assistant" : m?.role === "user" ? "user" : null;
+    const content = typeof m?.content === "string" ? m.content.trim() : "";
+    if (!role || !content) throw new BadRequest(FRIENDLY.bad);
+    if (role === "user" && content.length > MAX_MESSAGE_LENGTH) throw new BadRequest(FRIENDLY.tooLong, 413);
+    return { role, content: role === "assistant" ? content.slice(0, MAX_REPLY_LENGTH) : content };
+  });
+  while (msgs.length && msgs[0].role !== "user") msgs.shift();
+  if (!msgs.length || msgs[msgs.length - 1].role !== "user") throw new BadRequest(FRIENDLY.bad);
+  // Merge back-to-back turns from the same side (for example after a failed reply) so roles alternate.
+  return msgs.reduce((out, m) => {
+    const last = out[out.length - 1];
+    if (last?.role === m.role) last.content += `\n\n${m.content}`;
+    else out.push({ ...m });
+    return out;
+  }, []);
+}
+
+async function readJson(req) {
+  let size = 0;
+  const chunks = [];
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > MAX_BODY_BYTES) throw new BadRequest(FRIENDLY.tooLong, 413);
+    chunks.push(chunk);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new BadRequest(FRIENDLY.bad);
+  }
+}
+
+function sendJson(res, status, body, headers = {}) {
+  res.writeHead(status, { "Content-Type": "application/json", ...headers });
+  res.end(JSON.stringify(body));
+}
+
+function clientIp(req, trustProxy) {
+  const fwd = trustProxy ? String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() : "";
+  return fwd || req.socket.remoteAddress || "unknown";
+}
+
+/**
+ * Builds the request handler. `client` is injectable for tests; by default it's the Anthropic SDK client.
+ * Returns false for paths it doesn't own.
+ */
+export function createSproutHandler({
+  apiKey = process.env.ANTHROPIC_API_KEY,
+  model = process.env.SPROUT_MODEL || "claude-sonnet-5-5",
+  effort = process.env.SPROUT_EFFORT || "low",
+  allowedOrigins = (process.env.SPROUT_ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean),
+  trustProxy = process.env.SPROUT_TRUST_PROXY === "1",
+  limiter = createRateLimiter({
+    perMinute: Number(process.env.SPROUT_RATE_PER_MINUTE) || 8,
+    perDay: Number(process.env.SPROUT_RATE_PER_DAY) || 80,
+  }),
+  client = apiKey ? new Anthropic({ apiKey }) : null,
+  log = console,
+} = {}) {
+  const live = Boolean(client);
+
+  async function chat(req, res, cors) {
+    if (!live) return sendJson(res, 503, { error: FRIENDLY.offline, code: "not_configured" }, cors);
+    const gate = limiter.take(clientIp(req, trustProxy));
+    if (!gate.ok) return sendJson(res, 429, { error: FRIENDLY.slowDown }, { ...cors, "Retry-After": String(gate.retryAfter) });
+
+    let messages;
+    let ctx;
+    try {
+      const body = await readJson(req);
+      messages = cleanMessages(body?.messages);
+      ctx = readContext(body?.context);
+    } catch (err) {
+      if (err instanceof BadRequest) return sendJson(res, err.status, { error: err.message }, cors);
+      throw err;
+    }
+
+    res.writeHead(200, {
+      ...cors,
+      "Content-Type": "text/event-stream; charset=utf-8",
+      // no-transform stops dev-server compression from buffering the stream.
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    const send = (ev) => {
+      if (!res.writableEnded) res.write(`data: ${JSON.stringify(ev)}\n\n`);
+    };
+
+    // Stop calling Claude if the user hits Stop or closes the tab.
+    const abort = new AbortController();
+    res.on("close", () => {
+      if (!res.writableFinished) abort.abort();
+    });
+
+    const system = [
+      { type: "text", text: SPROUT_SYSTEM, cache_control: { type: "ephemeral" } },
+      { type: "text", text: snapshotBlock(planSnapshot(ctx)) },
+    ];
+    const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, rounds: 0, tools: [] };
+    let wroteText = false;
+
+    try {
+      for (let round = 0; ; round += 1) {
+        const lastRound = round >= MAX_TOOL_ROUNDS;
+        let roundHasText = false;
+        const stream = client.beta.messages.stream(
+          {
+            model,
+            max_tokens: 8000,
+            betas: ["server-side-fallback-2026-07-01"],
+            fallbacks: "default",
+            output_config: { effort },
+            system,
+            tools: TOOL_DEFS,
+            // After several calculator rounds, ask for a final answer.
+            ...(lastRound ? { tool_choice: { type: "none" } } : {}),
+            messages,
+          },
+          { signal: abort.signal }
+        );
+        stream.on("text", (delta) => {
+          // Keep text from separate rounds (before and after a calculator) in separate paragraphs.
+          if (!roundHasText && wroteText) send({ type: "text", text: "\n\n" });
+          roundHasText = true;
+          wroteText = true;
+          send({ type: "text", text: delta });
+        });
+        const message = await stream.finalMessage();
+        usage.rounds += 1;
+        usage.input += message.usage.input_tokens ?? 0;
+        usage.output += message.usage.output_tokens ?? 0;
+        usage.cacheRead += message.usage.cache_read_input_tokens ?? 0;
+        usage.cacheWrite += message.usage.cache_creation_input_tokens ?? 0;
+
+        if (message.stop_reason === "refusal") {
+          send({ type: "error", message: FRIENDLY.refused });
+          break;
+        }
+        const toolUses = message.content.filter((b) => b.type === "tool_use");
+        if (!toolUses.length || lastRound) break;
+        // A tool call cut off by max_tokens may have truncated input; don't run it.
+        if (message.stop_reason === "max_tokens") {
+          send({ type: "error", message: FRIENDLY.generic });
+          break;
+        }
+
+        // Append the whole assistant turn unchanged (thinking blocks included), then every result in one user turn.
+        messages = [...messages, { role: "assistant", content: message.content }];
+        const results = toolUses.map((t) => {
+          send({ type: "tool", name: t.name, ...toolPill(t.name, t.input, ctx) });
+          usage.tools.push(t.name);
+          let content;
+          try {
+            content = JSON.stringify(runTool(t.name, t.input, ctx));
+          } catch (err) {
+            log.error("[sprout] tool failed", t.name, err);
+            return { type: "tool_result", tool_use_id: t.id, is_error: true, content: "The calculator failed. Don't guess the number; tell the user to try again." };
+          }
+          return { type: "tool_result", tool_use_id: t.id, content };
+        });
+        messages = [...messages, { role: "user", content: results }];
+      }
+      if (!abort.signal.aborted) send({ type: "done" });
+    } catch (err) {
+      if (abort.signal.aborted || err instanceof Anthropic.APIUserAbortError) {
+        // The user stopped the reply; nothing to report.
+      } else if (err instanceof Anthropic.RateLimitError || err instanceof Anthropic.InternalServerError) {
+        log.error("[sprout] upstream busy", err.status);
+        send({ type: "error", message: FRIENDLY.busy });
+      } else {
+        log.error("[sprout] chat failed", err instanceof Anthropic.APIError ? `${err.status} ${err.message}` : err);
+        send({ type: "error", message: FRIENDLY.generic });
+      }
+    } finally {
+      log.info?.(
+        `[sprout] ${model} rounds=${usage.rounds} tools=${usage.tools.join(",") || "-"} in=${usage.input} cache_read=${usage.cacheRead} cache_write=${usage.cacheWrite} out=${usage.output}`
+      );
+      res.end();
+    }
+  }
+
+  return async function handle(req, res) {
+    const url = new URL(req.url, "http://localhost");
+    if (!url.pathname.startsWith("/api/sprout/")) return false;
+
+    const origin = req.headers.origin;
+    const cors =
+      origin && allowedOrigins.includes(origin)
+        ? { "Access-Control-Allow-Origin": origin, Vary: "Origin", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" }
+        : {};
+
+    if (req.method === "OPTIONS") {
+      res.writeHead(204, cors);
+      res.end();
+    } else if (url.pathname === "/api/sprout/status" && req.method === "GET") {
+      sendJson(res, 200, { live }, { ...cors, "Cache-Control": "no-store" });
+    } else if (url.pathname === "/api/sprout/chat" && req.method === "POST") {
+      try {
+        await chat(req, res, cors);
+      } catch (err) {
+        log.error("[sprout] unexpected", err);
+        if (!res.headersSent) sendJson(res, 500, { error: FRIENDLY.generic }, cors);
+        else res.end();
+      }
+    } else {
+      sendJson(res, 404, { error: "Not found" }, cors);
+    }
+    return true;
+  };
+}

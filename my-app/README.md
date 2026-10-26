@@ -20,6 +20,17 @@ Nothing important is game-only: everything in Garden mode has a Classic equivale
 | `world/` | Garden mode screens: the handheld frame, walking engine, town and garden maps, every scene, original pixel art, sound effects |
 | `battle/` | Quiz and keeper battles, Misconception and keeper art |
 | `design/` | The design system: tokens, components, charts, formatting |
+| `sprout/` | The Sprout chat: panel, streaming client, scripted preview replies, and `tools.js` (the calculators Sprout runs) |
+
+## Sprout, the AI guide (`server/`)
+
+Sprout answers with Claude through a small Node server, so the API key never reaches the browser.
+
+- `npm run server` starts it on port 8787 (it reads `.env.local`; see `.env.example`), and `npm start` proxies `/api` to it.
+- Claude never does the math: the server runs Prosperity's own calculators (`src/sprout/tools.js`) as tools and
+  the chat shows which one each answer came from. The system prompt is in `server/prompts/sprout.mjs`.
+- No `ANTHROPIC_API_KEY`, or no server at all (as on GitHub Pages), means scripted preview replies with a notice.
+- `npm run test:server` tests the route with a fake Claude client.
 
 ## Ground rules the game layer follows
 
@@ -32,7 +43,7 @@ Nothing important is game-only: everything in Garden mode has a Classic equivale
 
 ## Testing and deploying
 
-- `npm test` runs the Jest suite (pure logic plus key screens).
+- `npm test` runs the Jest suite (pure logic plus key screens); `npm run test:server` runs the Sprout server tests (Node 22+).
 - `main` deploys to GitHub Pages through GitHub Actions, which runs the tests first. Work happens on a branch and is fast-forwarded to `main`.
 
 ---
