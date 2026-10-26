@@ -31,6 +31,9 @@ jobs:
       - name: Test
         working-directory: my-app
         run: CI=true npm test -- --watchAll=false
+      - name: Test Sprout server
+        working-directory: my-app
+        run: npm run test:server
       - name: Build
         working-directory: my-app
         env:
@@ -38,11 +41,16 @@ jobs:
           # Baked into the bundle at build time. The anon key is public by design; access is enforced by Supabase row-level security.
           REACT_APP_SUPABASE_URL: ${{ secrets.REACT_APP_SUPABASE_URL }}
           REACT_APP_SUPABASE_ANON_KEY: ${{ secrets.REACT_APP_SUPABASE_ANON_KEY }}
+          # Sprout's API on Render (a repo variable, not a secret: the URL is public). Unset means scripted preview replies.
+          REACT_APP_SPROUT_API_URL: ${{ vars.REACT_APP_SPROUT_API_URL }}
         run: |
           # Never publish a site whose sign-in can't reach Supabase.
           if [ -z "$REACT_APP_SUPABASE_URL" ] || [ -z "$REACT_APP_SUPABASE_ANON_KEY" ]; then
             echo "::error::Add the REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY repository secrets."
             exit 1
+          fi
+          if [ -z "$REACT_APP_SPROUT_API_URL" ]; then
+            echo "::warning::REACT_APP_SPROUT_API_URL isn't set, so Sprout will use scripted preview replies. See DEPLOY.md."
           fi
           npm run build
       - uses: actions/upload-pages-artifact@v3

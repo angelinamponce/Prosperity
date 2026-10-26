@@ -1,0 +1,43 @@
+# Render Blueprint for Sprout's API (the Claude-backed chat). The website itself stays on GitHub Pages.
+# Setup steps: DEPLOY.md.
+services:
+  - type: web
+    name: prosperity-sprout-api
+    runtime: node
+    # Free sleeps after 15 idle minutes and takes about a minute to wake; the chat handles that.
+    # Change to 0.5c-512mb (Starter) to keep it awake.
+    plan: free
+    region: oregon
+    branch: main
+    rootDir: my-app
+    # Only the server's own dependencies (the Anthropic SDK); the React app isn't built here.
+    buildCommand: npm ci --prefix server --no-audit --no-fund
+    startCommand: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON server/index.mjs
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    # Redeploy only when code the server runs changes (paths are from the repo root).
+    # Keep in sync with the imports in server/chat.mjs and src/sprout/tools.js.
+    buildFilter:
+      paths:
+        - my-app/server/**
+        - my-app/src/sprout/tools.js
+        - my-app/src/dashboard/finance.js
+        - my-app/src/dashboard/summaries.js
+        - my-app/src/design/format.js
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false # secret: you paste it in the Render dashboard
+      - key: SPROUT_MODEL
+        value: claude-sonnet-5-5
+      - key: SPROUT_EFFORT
+        value: low
+      - key: SPROUT_ALLOWED_ORIGINS
+        value: https://angelinamponce.github.io
+      # Render's proxy sits in front, so rate limits read the visitor's IP from its headers.
+      - key: SPROUT_TRUST_PROXY
+        value: "1"
+      # Production: localhost origins are refused.
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"

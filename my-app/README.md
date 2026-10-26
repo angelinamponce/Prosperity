@@ -26,7 +26,8 @@ Nothing important is game-only: everything in Garden mode has a Classic equivale
 
 Sprout answers with Claude through a small Node server, so the API key never reaches the browser.
 
-- `npm run server` starts it on port 8787 (it reads `.env.local`; see `.env.example`), and `npm start` proxies `/api` to it.
+- `npm run server` installs its one dependency (`server/package.json`) and starts it on port 8787, reading `.env.local`
+  (see `.env.example`); `npm start` proxies `/api` to it. In production it runs on Render: see `../DEPLOY.md`.
 - Claude never does the math: the server runs Prosperity's own calculators (`src/sprout/tools.js`) as tools and
   the chat shows which one each answer came from. The system prompt is in `server/prompts/sprout.mjs`.
 - No `ANTHROPIC_API_KEY`, or no server at all (as on GitHub Pages), means scripted preview replies with a notice.
