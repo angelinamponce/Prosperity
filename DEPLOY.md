@@ -1,6 +1,11 @@
 # Deploying Sprout's API
 
 The website stays on GitHub Pages. Sprout's chat API (`my-app/server`) runs on Render, set up from `render.yaml`.
+Sprout answers with Google Gemini on the free tier (`gemini-3.8-flash`); Claude is still supported (see the end).
+
+Free-tier note: on Google's free tier, prompts and answers may be used to improve Google's products, which is why the chat
+says "Demo AI — don't enter real account details." The free tier also has per-minute and per-day request limits; when
+Gemini answers 429 (quota used up) the chat quietly switches to scripted preview replies until Google says to retry.
 Until the API is reachable, the chat falls back to scripted preview replies on its own, so nothing breaks in between.
 
 ## 1. Put the code on `main`
@@ -15,18 +20,26 @@ Render deploys from `main`. Merge the branch and push (this also redeploys the w
 4. Next to **angelinamponce/Prosperity**, click **Connect**.
 5. Give the Blueprint a name (for example `prosperity`), choose branch **main**, and leave **Blueprint Path** as `render.yaml`.
 6. Render lists one service to create: **prosperity-sprout-api** (Web Service, Free).
-7. It asks for **ANTHROPIC_API_KEY**: paste your key here (create one in the Claude Console at [platform.claude.com](https://platform.claude.com) → **API Keys**). It never goes in the repo or the website.
+7. It asks for **GEMINI_API_KEY**: paste your key here (create one in Google AI Studio at
+   [aistudio.google.com/apikey](https://aistudio.google.com/apikey) → **Create API key**; a project without billing
+   stays on the free tier). It never goes in the repo or the website.
 8. Click **Deploy Blueprint** and wait for the deploy to show **Live** (a few minutes).
 9. Copy the service URL shown under the service name, like `https://prosperity-sprout-api.onrender.com`.
    Render adds a suffix if that name is taken, so use the URL it shows you.
 
 Check it in a browser:
 - `https://<your-service>.onrender.com/healthz` shows `{"ok":true}`
-- `https://<your-service>.onrender.com/api/sprout/status` shows `{"live":true}` (`false` means the key is missing)
+- `https://<your-service>.onrender.com/api/sprout/status` shows `{"live":true}` (`false` means the key is missing,
+  or the daily cap or Gemini's quota is used up)
 
-**Missed the key, or need to change it?** Open the service → **Environment** → find `ANTHROPIC_API_KEY` (or **Add Environment Variable**) → paste → **Save, rebuild, and deploy**.
+**Missed the key, or need to change it?** Open the service → **Environment** → find `GEMINI_API_KEY` (or **Add Environment Variable**) → paste → **Save, rebuild, and deploy**.
 
-Tip: set a monthly spend limit for the key in the Claude Console.
+**Already created the service back when it used Claude?** Render's Blueprint sync adds the new plain settings
+(`SPROUT_LLM_PROVIDER`, `SPROUT_GEMINI_MODEL`) but never asks for a new secret. Open the service → **Environment** →
+**Add Environment Variable** → `GEMINI_API_KEY` = your key → **Save, rebuild, and deploy**. You can then delete
+`ANTHROPIC_API_KEY` and `SPROUT_MODEL` there. Check `/api/sprout/status` again afterwards.
+
+Keep the key on a Google Cloud project with no billing account, so it can only use the free tier.
 
 ## 3. Point the website at the API
 
@@ -49,9 +62,10 @@ after a quiet spell shows "Sprout is waking up…" for up to a minute (Free inst
 
 | Variable | Value | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | (you paste it) | Secret, set only in the Render dashboard |
-| `SPROUT_MODEL` | `claude-sonnet-5-5` | Change here or in the dashboard |
-| `SPROUT_EFFORT` | `low` | Short chat answers |
+| `SPROUT_LLM_PROVIDER` | `gemini` | `gemini` or `anthropic` |
+| `GEMINI_API_KEY` | (you paste it) | Secret, set only in the Render dashboard |
+| `SPROUT_GEMINI_MODEL` | `gemini-3.8-flash` | Any free-tier Flash model, e.g. `gemini-3.5-flash-lite` for higher limits ([pricing](https://ai.google.dev/gemini-api/docs/pricing)) |
+| `SPROUT_EFFORT` | `low` | Short chat answers (Gemini's thinking level, or Claude's effort) |
 | `SPROUT_ALLOWED_ORIGINS` | `https://angelinamponce.github.io` | The only site allowed to use the chat. In production, localhost and requests with no Origin header (curl, scripts) are refused |
 | `SPROUT_DAILY_MESSAGE_CAP` | `300` | Messages per UTC day across everyone |
 | `SPROUT_DAILY_TOKEN_CAP` | `1500000` | Tokens per UTC day across everyone. Past either cap, the chat shows preview replies until midnight UTC |
@@ -67,5 +81,14 @@ Optional: `SPROUT_RATE_PER_MINUTE` (default 8) and `SPROUT_RATE_PER_DAY` (defaul
   is set, and that the Pages workflow ran after you set it. Open DevTools → Network and look for `/api/sprout/status`.
 - **Preview mode came back later in the day**: the daily cap was reached. The log says `daily cap reached`; it resets at
   midnight UTC (or on a restart). Raise `SPROUT_DAILY_MESSAGE_CAP` / `SPROUT_DAILY_TOKEN_CAP` under **Environment** if needed.
+  If the log says `gemini quota used up (429)` instead, Google's free-tier limit was hit; live answers come back after the
+  wait it names. Your limits are in AI Studio → **Rate limit**. A Flash-Lite model has higher free limits.
 - **A CORS error in the browser console**: `SPROUT_ALLOWED_ORIGINS` must be exactly `https://angelinamponce.github.io` (no path, no trailing slash).
-- **Logs**: Render → service → **Logs**. Each answer logs its tools and token counts, which is also how to check cost.
+- **Logs**: Render → service → **Logs**. Each answer logs the provider/model, its tools and token counts.
+
+## Switching back to Claude
+
+In Render → **Environment**: set `SPROUT_LLM_PROVIDER` to `anthropic`, add `ANTHROPIC_API_KEY` (from
+[platform.claude.com](https://platform.claude.com) → **API Keys**; set a monthly spend limit there) and optionally
+`SPROUT_MODEL` (default `claude-sonnet-5-5`) → **Save, rebuild, and deploy**. Also change `SPROUT_LLM_PROVIDER` in
+`render.yaml` so a later Blueprint sync doesn't switch it back.

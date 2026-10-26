@@ -1,11 +1,13 @@
 // Sprout's API server. Run with `npm run server` (reads .env.local), then `npm start` proxies /api to it.
-// The key stays here: the browser never sees ANTHROPIC_API_KEY.
+// The key stays here: the browser never sees GEMINI_API_KEY (or ANTHROPIC_API_KEY).
 
 import http from "node:http";
 import { createSproutHandler } from "./chat.mjs";
+import { createLlm, keyName } from "./llm/index.mjs";
 
 const port = Number(process.env.PORT || process.env.SPROUT_PORT) || 8787;
-const handle = createSproutHandler();
+const llm = createLlm();
+const handle = createSproutHandler({ llm });
 
 http
   .createServer(async (req, res) => {
@@ -15,10 +17,9 @@ http
     }
   })
   .listen(port, () => {
-    const live = Boolean(process.env.ANTHROPIC_API_KEY);
     console.log(
       `Sprout server on http://localhost:${port} (${
-        live ? `live, model ${process.env.SPROUT_MODEL || "claude-sonnet-5-5"}` : "no ANTHROPIC_API_KEY: the app will use scripted preview replies"
+        llm ? `live, ${llm.name} model ${llm.model}` : `no ${keyName()}: the app will use scripted preview replies`
       })`
     );
   });

@@ -1,16 +1,17 @@
-// POST /api/sprout/chat: streams Sprout's reply as server-sent events, running Prosperity's calculators as Claude tools.
-// GET /api/sprout/status: tells the browser whether the live assistant is available (no key, or today's budget used up,
-// means scripted preview mode).
+// POST /api/sprout/chat: streams Sprout's reply as server-sent events, running Prosperity's calculators as model tools.
+// The model comes from ./llm (Gemini by default, or Claude); the tool loop, caps and checks here are the same for both.
+// GET /api/sprout/status: tells the browser whether the live assistant is available (no key, today's budget used up,
+// or the provider's quota used up, means scripted preview mode).
 // GET /healthz: Render's health check, and the ping the chat sends on open to wake a sleeping free instance.
 //
 // Events (one JSON object per "data:" line), the same ones the scripted preview emits:
 //   { type: "text", text } | { type: "tool", name, label, summary } | { type: "done" } | { type: "error", message }
 
 import { isIP } from "node:net";
-import Anthropic from "@anthropic-ai/sdk";
 import { TOOL_DEFS, planSnapshot, readContext, runTool, toolPill } from "../src/sprout/tools.js";
 import { SPROUT_SYSTEM, snapshotBlock } from "./prompts/sprout.mjs";
 import { createDailyBudget } from "./budget.mjs";
+import { createLlm } from "./llm/index.mjs";
 import { createRateLimiter } from "./rateLimit.mjs";
 
 export const MAX_MESSAGE_LENGTH = 1000; // matches the chat box
@@ -18,6 +19,7 @@ export const HISTORY_SENT = 20;
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_REPLY_LENGTH = 8000; // earlier Sprout replies sent back as history
 const MAX_TOOL_ROUNDS = 4;
+const QUOTA_PAUSE_SECONDS = 60; // after a provider 429, when it doesn't say how long to wait
 
 const FRIENDLY = {
   generic: "Sprout couldn't answer just now. Please try again in a moment.",
@@ -92,13 +94,11 @@ export function clientIp(req, trustProxy) {
 }
 
 /**
- * Builds the request handler. `client` is injectable for tests; by default it's the Anthropic SDK client.
+ * Builds the request handler. `llm` is injectable for tests; by default it's the provider SPROUT_LLM_PROVIDER picks
+ * (see ./llm/index.mjs), or null when that provider has no key.
  * Returns false for paths it doesn't own.
  */
 export function createSproutHandler({
-  apiKey = process.env.ANTHROPIC_API_KEY,
-  model = process.env.SPROUT_MODEL || "claude-sonnet-5-5",
-  effort = process.env.SPROUT_EFFORT || "low",
   allowedOrigins = (process.env.SPROUT_ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean),
   trustProxy = process.env.SPROUT_TRUST_PROXY === "1",
   // Local dev servers (any localhost port) may call the API too, but never in production.
@@ -109,22 +109,29 @@ export function createSproutHandler({
     perMinute: Number(process.env.SPROUT_RATE_PER_MINUTE) || 8,
     perDay: Number(process.env.SPROUT_RATE_PER_DAY) || 80,
   }),
-  client = apiKey ? new Anthropic({ apiKey }) : null,
+  llm = createLlm(),
   log = console,
   budget = createDailyBudget({
     messageCap: Number(process.env.SPROUT_DAILY_MESSAGE_CAP) || 300,
     tokenCap: Number(process.env.SPROUT_DAILY_TOKEN_CAP) || 1_500_000,
     log,
   }),
+  now = () => Date.now(),
 } = {}) {
-  const live = Boolean(client);
-  // The browser switches to scripted preview replies when it gets either of these.
+  const live = Boolean(llm);
+  // When the provider says its quota is used up (Gemini's free tier: 429 RESOURCE_EXHAUSTED), stop calling it for a while.
+  let quotaPausedUntil = 0;
+  const quotaPaused = () => now() < quotaPausedUntil;
+  // The browser switches to scripted preview replies when it gets any of these. A provider quota pause reuses the
+  // daily_cap code so the deployed site needs no change; the browser plays preview replies either way.
   const offline = (res, cors) => sendJson(res, 503, { error: FRIENDLY.offline, code: "not_configured" }, cors);
   const resting = (res, cors) => sendJson(res, 503, { error: FRIENDLY.resting, code: "daily_cap" }, cors);
+  const overQuota = (res, cors) => sendJson(res, 503, { error: FRIENDLY.busy, code: "daily_cap" }, cors);
 
   async function chat(req, res, cors) {
     if (!live) return offline(res, cors);
     if (budget.exhausted()) return resting(res, cors);
+    if (quotaPaused()) return overQuota(res, cors);
     const gate = limiter.take(clientIp(req, trustProxy));
     if (!gate.ok) return sendJson(res, 429, { error: FRIENDLY.slowDown }, { ...cors, "Retry-After": String(gate.retryAfter) });
 
@@ -140,108 +147,112 @@ export function createSproutHandler({
     }
     if (!budget.takeMessage()) return resting(res, cors);
 
-    res.writeHead(200, {
-      ...cors,
-      "Content-Type": "text/event-stream; charset=utf-8",
-      // no-transform stops dev-server compression from buffering the stream.
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
-    });
+    // The event stream opens with the first event, so a quota error before anything is sent can still be a plain 503.
+    const openStream = () => {
+      if (res.headersSent) return;
+      res.writeHead(200, {
+        ...cors,
+        "Content-Type": "text/event-stream; charset=utf-8",
+        // no-transform stops dev-server compression from buffering the stream.
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+    };
     const send = (ev) => {
+      openStream();
       if (!res.writableEnded) res.write(`data: ${JSON.stringify(ev)}\n\n`);
     };
 
-    // Stop calling Claude if the user hits Stop or closes the tab.
+    // Stop calling the model if the user hits Stop or closes the tab.
     const abort = new AbortController();
     res.on("close", () => {
       if (!res.writableFinished) abort.abort();
     });
 
-    const system = [
-      { type: "text", text: SPROUT_SYSTEM, cache_control: { type: "ephemeral" } },
-      { type: "text", text: snapshotBlock(planSnapshot(ctx)) },
-    ];
+    const snapshot = snapshotBlock(planSnapshot(ctx));
     const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, rounds: 0, tools: [] };
     let wroteText = false;
 
     try {
+      let history = llm.start(messages);
       for (let round = 0; ; round += 1) {
         const lastRound = round >= MAX_TOOL_ROUNDS;
         let roundHasText = false;
-        const stream = client.beta.messages.stream(
-          {
-            model,
-            max_tokens: 8000,
-            betas: ["server-side-fallback-2026-07-01"],
-            fallbacks: "default",
-            output_config: { effort },
-            system,
-            tools: TOOL_DEFS,
-            // After several calculator rounds, ask for a final answer.
-            ...(lastRound ? { tool_choice: { type: "none" } } : {}),
-            messages,
+        const turn = await llm.turn({
+          system: SPROUT_SYSTEM,
+          snapshot,
+          tools: TOOL_DEFS,
+          history,
+          lastRound,
+          signal: abort.signal,
+          onText(delta) {
+            // Keep text from separate rounds (before and after a calculator) in separate paragraphs.
+            if (!roundHasText && wroteText) send({ type: "text", text: "\n\n" });
+            roundHasText = true;
+            wroteText = true;
+            send({ type: "text", text: delta });
           },
-          { signal: abort.signal }
-        );
-        stream.on("text", (delta) => {
-          // Keep text from separate rounds (before and after a calculator) in separate paragraphs.
-          if (!roundHasText && wroteText) send({ type: "text", text: "\n\n" });
-          roundHasText = true;
-          wroteText = true;
-          send({ type: "text", text: delta });
         });
-        const message = await stream.finalMessage();
         usage.rounds += 1;
-        usage.input += message.usage.input_tokens ?? 0;
-        usage.output += message.usage.output_tokens ?? 0;
-        usage.cacheRead += message.usage.cache_read_input_tokens ?? 0;
-        usage.cacheWrite += message.usage.cache_creation_input_tokens ?? 0;
+        usage.input += turn.usage.input;
+        usage.output += turn.usage.output;
+        usage.cacheRead += turn.usage.cacheRead;
+        usage.cacheWrite += turn.usage.cacheWrite;
 
-        if (message.stop_reason === "refusal") {
+        if (turn.stop === "refusal") {
           send({ type: "error", message: FRIENDLY.refused });
           break;
         }
-        const toolUses = message.content.filter((b) => b.type === "tool_use");
-        if (!toolUses.length || lastRound) break;
+        if (turn.stop === "failed") {
+          send({ type: "error", message: FRIENDLY.generic });
+          break;
+        }
+        if (!turn.toolCalls.length || lastRound) break;
         // A tool call cut off by max_tokens may have truncated input; don't run it.
-        if (message.stop_reason === "max_tokens") {
+        if (turn.stop === "max_tokens") {
           send({ type: "error", message: FRIENDLY.generic });
           break;
         }
 
-        // Append the whole assistant turn unchanged (thinking blocks included), then every result in one user turn.
-        messages = [...messages, { role: "assistant", content: message.content }];
-        const results = toolUses.map((t) => {
-          send({ type: "tool", name: t.name, ...toolPill(t.name, t.input, ctx) });
-          usage.tools.push(t.name);
-          let content;
+        // The model never does the arithmetic: every number comes from runTool here on the server.
+        const results = turn.toolCalls.map((call) => {
+          send({ type: "tool", name: call.name, ...toolPill(call.name, call.input, ctx) });
+          usage.tools.push(call.name);
           try {
-            content = JSON.stringify(runTool(t.name, t.input, ctx));
+            return { call, output: runTool(call.name, call.input, ctx) };
           } catch (err) {
-            log.error("[sprout] tool failed", t.name, err);
-            return { type: "tool_result", tool_use_id: t.id, is_error: true, content: "The calculator failed. Don't guess the number; tell the user to try again." };
+            log.error("[sprout] tool failed", call.name, err);
+            return { call, error: "The calculator failed. Don't guess the number; tell the user to try again." };
           }
-          return { type: "tool_result", tool_use_id: t.id, content };
         });
-        messages = [...messages, { role: "user", content: results }];
+        history = llm.withToolResults(history, turn, results);
       }
       if (!abort.signal.aborted) send({ type: "done" });
     } catch (err) {
-      if (abort.signal.aborted || err instanceof Anthropic.APIUserAbortError) {
+      const kind = abort.signal.aborted ? "aborted" : llm.classifyError(err);
+      if (kind === "aborted") {
         // The user stopped the reply; nothing to report.
-      } else if (err instanceof Anthropic.RateLimitError || err instanceof Anthropic.InternalServerError) {
-        log.error("[sprout] upstream busy", err.status);
+      } else if (kind === "quota") {
+        const wait = llm.retryAfterSeconds?.(err) ?? QUOTA_PAUSE_SECONDS;
+        quotaPausedUntil = now() + wait * 1000;
+        log.warn?.(`[sprout] ${llm.name} quota used up (429); preview mode for ${wait}s`);
+        // Nothing streamed yet: the same 503 as a used-up daily cap, so the browser answers with preview replies.
+        if (!res.headersSent) overQuota(res, cors);
+        else send({ type: "error", message: FRIENDLY.busy });
+      } else if (kind === "busy") {
+        log.error("[sprout] upstream busy", err?.status);
         send({ type: "error", message: FRIENDLY.busy });
       } else {
-        log.error("[sprout] chat failed", err instanceof Anthropic.APIError ? `${err.status} ${err.message}` : err);
+        log.error("[sprout] chat failed", llm.describeError(err));
         send({ type: "error", message: FRIENDLY.generic });
       }
     } finally {
       budget.addTokens(usage.input + usage.output + usage.cacheRead + usage.cacheWrite);
       log.info?.(
-        `[sprout] ${model} rounds=${usage.rounds} tools=${usage.tools.join(",") || "-"} in=${usage.input} cache_read=${usage.cacheRead} cache_write=${usage.cacheWrite} out=${usage.output}`
+        `[sprout] ${llm.name}/${llm.model} rounds=${usage.rounds} tools=${usage.tools.join(",") || "-"} in=${usage.input} cache_read=${usage.cacheRead} cache_write=${usage.cacheWrite} out=${usage.output}`
       );
+      if (!res.headersSent && !res.writableEnded) openStream();
       res.end();
     }
   }
@@ -269,9 +280,9 @@ export function createSproutHandler({
     } else if (url.pathname === "/healthz" && (req.method === "GET" || req.method === "HEAD")) {
       sendJson(res, 200, { ok: true }, { ...cors, "Cache-Control": "no-store" });
     } else if (url.pathname === "/api/sprout/status" && req.method === "GET") {
-      sendJson(res, 200, { live: live && !budget.exhausted() }, { ...cors, "Cache-Control": "no-store" });
+      sendJson(res, 200, { live: live && !budget.exhausted() && !quotaPaused() }, { ...cors, "Cache-Control": "no-store" });
     } else if (url.pathname === "/api/sprout/chat" && req.method === "POST") {
-      // Other sites can't use the API (and spend the key). In production, neither can scripts that send no Origin;
+      // Other sites can't use the API (and spend the key's quota). In production, neither can scripts that send no Origin;
       // in development those (curl, tests) are allowed and still face the rate limit.
       if ((origin && !originAllowed) || (!origin && requireOrigin)) {
         sendJson(res, 403, { error: FRIENDLY.forbidden }, cors);

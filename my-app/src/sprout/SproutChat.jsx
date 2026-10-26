@@ -241,6 +241,7 @@ export default function SproutChat({ starters = [], title = "Sprout" }) {
             {remaining} characters left
           </p>
         )}
+        <p className="sp-meta sp-meta--notice">Demo AI — don't enter real account details.</p>
       </form>
     </section>
   );

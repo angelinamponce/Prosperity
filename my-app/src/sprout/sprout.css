@@ -191,6 +191,7 @@
 .sp-meta { margin: 0; font-size: 0.75rem; color: var(--sp-ink-3); }
 .sp-meta.is-over { color: var(--sp-error); }
 .sp-meta--mock { margin-bottom: 6px; }
+.sp-meta--notice { margin-top: 6px; text-align: center; }
 
 .sp-composer { padding: 10px 12px 12px; border-top: 1px solid var(--sp-border); background: var(--sp-bg); }
 .sp-composer__row { display: flex; align-items: flex-end; gap: 8px; }

@@ -1,4 +1,4 @@
-// Sprout's calculator tools. The server runs these when Claude asks for a number; Claude never does the math itself.
+// Sprout's calculator tools. The server runs these when the model asks for a number; the model never does the math itself.
 // Pure and React-free so Jest tests them and the Node server can import them. Imports keep their ".js" for Node.
 
 import {
@@ -93,7 +93,7 @@ export function readContext(context) {
 
 // ---------- The snapshot that goes in the system prompt ----------
 
-/** Plain facts from the survey (no computed results), so Claude knows what the user has without doing math. */
+/** Plain facts from the survey (no computed results), so the model knows what the user has without doing math. */
 export function planSnapshot({ profile, plan, demo }, now = new Date()) {
   const today = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   if (!profile) return `Today is ${today}.\nThe user has NOT completed the survey yet, so there is no plan. The calculator tools will say so.`;
@@ -129,7 +129,7 @@ export function planSnapshot({ profile, plan, demo }, now = new Date()) {
   return lines.join("\n");
 }
 
-// ---------- Tool definitions (sent to Claude; keep the order stable so the prompt cache holds) ----------
+// ---------- Tool definitions (Claude's format; server/llm/gemini.mjs converts them. Keep the order stable so the prompt cache holds) ----------
 
 const obj = (properties, required = []) => ({ type: "object", properties, required, additionalProperties: false });
 
@@ -343,7 +343,7 @@ function match(profile, m) {
   };
 }
 
-/** Runs one tool. Returns a plain object (sent back to Claude as JSON). Never throws for bad input. */
+/** Runs one tool. Returns a plain object (sent back to the model as JSON). Never throws for bad input. */
 export function runTool(name, input, ctx, now = new Date()) {
   const args = input && typeof input === "object" ? input : {};
   const { profile, plan } = ctx;

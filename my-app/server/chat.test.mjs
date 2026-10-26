@@ -1,13 +1,19 @@
-// Run with `npm run test:server`. Uses a fake Claude client, so no API key or network is needed.
+// Run with `npm run test:server`. Uses fake Claude and Gemini clients, so no API key or network is needed.
 import assert from "node:assert/strict";
 import http from "node:http";
 import { test } from "node:test";
+import { ApiError } from "@google/genai";
 import { createDailyBudget } from "./budget.mjs";
 import { cleanMessages, clientIp, createSproutHandler } from "./chat.mjs";
+import { createAnthropicProvider } from "./llm/anthropic.mjs";
+import { createGeminiProvider, retryAfterSeconds } from "./llm/gemini.mjs";
+import { createLlm } from "./llm/index.mjs";
 import { createRateLimiter } from "./rateLimit.mjs";
 import { sampleProfile } from "../src/dashboard/sampleProfile.js";
 
 const quiet = { info() {}, error() {} };
+
+const claude = (client, model) => createAnthropicProvider({ client, model });
 
 /** A stand-in for client.beta.messages.stream: plays back scripted turns and records each request. */
 function fakeClient(turns) {
@@ -61,7 +67,7 @@ const events = async (res) =>
 const ask = (text) => ({ messages: [{ role: "user", content: text }], context: { profile: sampleProfile, plan: { extraDebt: 300, strategy: "avalanche" } } });
 
 test("status reports whether a key is configured", async () => {
-  await withServer(createSproutHandler({ client: null, log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: null, log: quiet }), async (base) => {
     assert.deepEqual(await (await fetch(`${base}/api/sprout/status`)).json(), { live: false });
     const res = await post(base, ask("hi"));
     assert.equal(res.status, 503);
@@ -77,7 +83,7 @@ test("runs the debt tool server-side, streams the pill and the answer", async ()
     },
     { stop_reason: "end_turn", content: [{ type: "text", text: "You'd be debt-free soon." }] },
   ]);
-  await withServer(createSproutHandler({ client, log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(client), log: quiet }), async (base) => {
     const evs = await events(await post(base, ask("If I put $300 extra toward debt, when am I debt-free?")));
     assert.deepEqual(evs[0], { type: "tool", name: "simulate_debt_payoff", label: "Debt payoff calculator", summary: "extra $300/mo · highest interest first" });
     assert.deepEqual(evs.slice(1), [{ type: "text", text: "You'd be debt-free soon." }, { type: "done" }]);
@@ -94,7 +100,7 @@ test("runs the debt tool server-side, streams the pill and the answer", async ()
 
 test("model comes from SPROUT_MODEL-style config", async () => {
   const client = fakeClient([{ stop_reason: "end_turn", content: [{ type: "text", text: "Hi!" }] }]);
-  await withServer(createSproutHandler({ client, model: "claude-haiku-5-5", log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(client, "claude-haiku-5-5"), log: quiet }), async (base) => {
     await events(await post(base, ask("hello")));
   });
   assert.equal(client.calls[0].model, "claude-haiku-5-5");
@@ -102,7 +108,7 @@ test("model comes from SPROUT_MODEL-style config", async () => {
 
 test("upstream failures become a friendly in-chat error, never a raw one", async () => {
   const client = fakeClient([new Error("socket hang up: secret internals")]);
-  await withServer(createSproutHandler({ client, log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(client), log: quiet }), async (base) => {
     const evs = await events(await post(base, ask("hello")));
     assert.deepEqual(evs, [{ type: "error", message: "Sprout couldn't answer just now. Please try again in a moment." }]);
   });
@@ -110,7 +116,7 @@ test("upstream failures become a friendly in-chat error, never a raw one", async
 
 test("refusals end with a friendly redirect", async () => {
   const client = fakeClient([{ stop_reason: "refusal", content: [] }]);
-  await withServer(createSproutHandler({ client, log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(client), log: quiet }), async (base) => {
     const evs = await events(await post(base, ask("something odd")));
     assert.equal(evs[0].type, "error");
     assert.match(evs[0].message, /budget, debt, savings/);
@@ -120,7 +126,7 @@ test("refusals end with a friendly redirect", async () => {
 test("rejects long messages and enforces the rate limit", async () => {
   const client = fakeClient(Array.from({ length: 5 }, () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "ok" }] })));
   const limiter = createRateLimiter({ perMinute: 2, perDay: 100 });
-  await withServer(createSproutHandler({ client, limiter, log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(client), limiter, log: quiet }), async (base) => {
     assert.equal((await post(base, ask("x".repeat(1001)))).status, 413);
     assert.equal((await post(base, ask("one"))).status, 200);
     const limited = await post(base, ask("two"));
@@ -155,7 +161,7 @@ const fromOrigin = (base, origin, body = ask("hi")) =>
   fetch(`${base}/api/sprout/chat`, { method: "POST", headers: { "Content-Type": "application/json", Origin: origin }, body: JSON.stringify(body) });
 
 test("/healthz answers 200 even without a key, for Render and the wake-up ping", async () => {
-  await withServer(createSproutHandler({ client: null, allowedOrigins: [PAGES], log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: null, allowedOrigins: [PAGES], log: quiet }), async (base) => {
     const res = await fetch(`${base}/healthz`, { headers: { Origin: PAGES } });
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), { ok: true });
@@ -164,7 +170,7 @@ test("/healthz answers 200 even without a key, for Render and the wake-up ping",
 });
 
 test("CORS: GitHub Pages is allowed, other sites are refused", async () => {
-  await withServer(createSproutHandler({ client: okClient(), allowedOrigins: [PAGES], allowLocalhost: false, log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(okClient()), allowedOrigins: [PAGES], allowLocalhost: false, log: quiet }), async (base) => {
     const ok = await fromOrigin(base, PAGES);
     assert.equal(ok.status, 200);
     assert.equal(ok.headers.get("access-control-allow-origin"), PAGES);
@@ -184,7 +190,7 @@ test("CORS: GitHub Pages is allowed, other sites are refused", async () => {
 });
 
 test("CORS: localhost on any port is allowed outside production", async () => {
-  await withServer(createSproutHandler({ client: okClient(), allowedOrigins: [PAGES], allowLocalhost: true, log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(okClient()), allowedOrigins: [PAGES], allowLocalhost: true, log: quiet }), async (base) => {
     const res = await fromOrigin(base, "http://localhost:3000");
     assert.equal(res.status, 200);
     assert.equal(res.headers.get("access-control-allow-origin"), "http://localhost:3000");
@@ -194,7 +200,7 @@ test("CORS: localhost on any port is allowed outside production", async () => {
 
 test("behind Render's proxy the rate limit keys on the visitor, not the proxy", async () => {
   const limiter = createRateLimiter({ perMinute: 1, perDay: 100 });
-  await withServer(createSproutHandler({ client: okClient(), limiter, trustProxy: true, log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(okClient()), limiter, trustProxy: true, log: quiet }), async (base) => {
     const as = (ip) => fetch(`${base}/api/sprout/chat`, { method: "POST", headers: { "CF-Connecting-IP": ip }, body: JSON.stringify(ask("hi")) });
     assert.equal((await as("1.1.1.1")).status, 200);
     assert.equal((await as("2.2.2.2")).status, 200);
@@ -210,7 +216,7 @@ const warnings = () => {
 test("daily message cap: once used up, chat gets the friendly 503 and status reports not live", async () => {
   const log = warnings();
   const budget = createDailyBudget({ messageCap: 2, tokenCap: 1e9, log });
-  await withServer(createSproutHandler({ client: okClient(), budget, log }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(okClient()), budget, log }), async (base) => {
     assert.equal((await post(base, ask("one"))).status, 200);
     assert.equal((await post(base, ask("two"))).status, 200);
     const third = await post(base, ask("three"));
@@ -226,7 +232,7 @@ test("daily token cap: replies that use up the token budget trip it", async () =
   const log = warnings();
   // Each fake reply reports 100 input + 20 output tokens.
   const budget = createDailyBudget({ messageCap: 1000, tokenCap: 200, log });
-  await withServer(createSproutHandler({ client: okClient(), budget, log }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(okClient()), budget, log }), async (base) => {
     await (await post(base, ask("one"))).text(); // 120 tokens
     await (await post(base, ask("two"))).text(); // 240 tokens: over
     assert.equal((await post(base, ask("three"))).status, 503);
@@ -246,7 +252,7 @@ test("daily caps reset at midnight UTC", () => {
 });
 
 test("in production, chat without an Origin header is refused but health and status stay open", async () => {
-  await withServer(createSproutHandler({ client: okClient(), allowedOrigins: [PAGES], allowLocalhost: false, requireOrigin: true, log: quiet }), async (base) => {
+  await withServer(createSproutHandler({ llm: claude(okClient()), allowedOrigins: [PAGES], allowLocalhost: false, requireOrigin: true, log: quiet }), async (base) => {
     const noOrigin = await post(base, ask("hi"));
     assert.equal(noOrigin.status, 403);
     assert.equal((await fetch(`${base}/healthz`)).status, 200);
@@ -266,4 +272,156 @@ test("rate-limit key: CF-Connecting-IP when it's a real IP, otherwise the socket
   assert.equal(clientIp(req("1.2.3.4, 5.6.7.8"), true), "10.0.0.9");
   // Without a trusted proxy the header is ignored.
   assert.equal(clientIp(req("203.0.113.7"), false), "10.0.0.9");
+});
+
+// ---------- Gemini ----------
+
+/** A stand-in for client.models.generateContentStream: each turn is a list of response chunks (or an Error to throw). */
+function fakeGemini(turns) {
+  const calls = [];
+  return {
+    calls,
+    models: {
+      async generateContentStream(params) {
+        const { abortSignal, ...rest } = params.config;
+        calls.push(structuredClone({ ...params, config: rest }));
+        const turn = turns.shift();
+        if (turn instanceof Error) throw turn;
+        return (async function* () {
+          for (const chunk of turn) {
+            if (chunk instanceof Error) throw chunk;
+            yield chunk;
+          }
+        })();
+      },
+    },
+  };
+}
+
+const chunk = (parts, extra = {}) => ({ candidates: [{ content: { role: "model", parts }, ...extra }] });
+const usageChunk = (parts, finishReason = "STOP") => ({
+  ...chunk(parts, { finishReason }),
+  usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 15, thoughtsTokenCount: 5 },
+});
+const gemini = (client, opts = {}) => createGeminiProvider({ client, ...opts });
+const quotaError = () =>
+  new ApiError({
+    status: 429,
+    message: JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED", details: [{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "7s" }] } }),
+  });
+
+test("Gemini: runs the debt tool server-side and sends the result back with the call's id and thought signature", async () => {
+  const client = fakeGemini([
+    [usageChunk([{ functionCall: { id: "c1", name: "simulate_debt_payoff", args: { extra_monthly_payment: 300, strategy: "avalanche" } }, thoughtSignature: "sig-1" }])],
+    [chunk([{ text: "You'd be " }]), usageChunk([{ text: "debt-free soon." }])],
+  ]);
+  await withServer(createSproutHandler({ llm: gemini(client), log: quiet }), async (base) => {
+    const evs = await events(await post(base, ask("If I put $300 extra toward debt, when am I debt-free?")));
+    assert.deepEqual(evs[0], { type: "tool", name: "simulate_debt_payoff", label: "Debt payoff calculator", summary: "extra $300/mo · highest interest first" });
+    assert.deepEqual(evs.slice(1), [{ type: "text", text: "You'd be " }, { type: "text", text: "debt-free soon." }, { type: "done" }]);
+  });
+  const [first, second] = client.calls;
+  assert.equal(first.model, "gemini-3.8-flash");
+  assert.deepEqual(first.contents, [{ role: "user", parts: [{ text: "If I put $300 extra toward debt, when am I debt-free?" }] }]);
+  assert.match(first.config.systemInstruction, /Never do financial arithmetic yourself/);
+  assert.match(first.config.systemInstruction, /Credit card: balance \$3,200, 22\.9% APR/);
+  assert.deepEqual(first.config.thinkingConfig, { thinkingLevel: "LOW" });
+  assert.equal(first.config.toolConfig, undefined);
+  const decl = first.config.tools[0].functionDeclarations.find((d) => d.name === "simulate_debt_payoff");
+  assert.deepEqual(decl.parametersJsonSchema.required, ["extra_monthly_payment", "strategy"]);
+  assert.equal(decl.eager_input_streaming, undefined);
+
+  const [, modelTurn, results] = second.contents;
+  assert.equal(modelTurn.role, "model");
+  assert.equal(modelTurn.parts[0].thoughtSignature, "sig-1");
+  const fr = results.parts[0].functionResponse;
+  assert.equal(results.role, "user");
+  assert.equal(fr.id, "c1");
+  assert.equal(fr.name, "simulate_debt_payoff");
+  assert.match(fr.response.output.debt_free_date, /^[A-Z][a-z]{2} \d{4}$/);
+});
+
+test("Gemini: after four calculator rounds, tool calls are switched off for the final answer", async () => {
+  const call = () => [usageChunk([{ functionCall: { name: "get_plan_summary", args: {} } }])];
+  const client = fakeGemini([call(), call(), call(), call(), [usageChunk([{ text: "Here's your picture." }])]]);
+  await withServer(createSproutHandler({ llm: gemini(client), log: quiet }), async (base) => {
+    const evs = await events(await post(base, ask("How am I doing?")));
+    assert.equal(evs.filter((e) => e.type === "tool").length, 4);
+    assert.deepEqual(evs.slice(-2), [{ type: "text", text: "Here's your picture." }, { type: "done" }]);
+  });
+  assert.equal(client.calls.length, 5);
+  assert.deepEqual(client.calls[4].config.toolConfig, { functionCallingConfig: { mode: "NONE" } });
+  // Calls without an id get a response without one (matched by name and order).
+  assert.equal(client.calls[1].contents.at(-1).parts[0].functionResponse.id, undefined);
+});
+
+test("Gemini: 429 RESOURCE_EXHAUSTED becomes the preview-mode 503 and pauses live answers for the retry delay", async () => {
+  let t = 1_000_000;
+  const client = fakeGemini([quotaError(), [usageChunk([{ text: "Back again." }])]]);
+  const log = { info() {}, error() {}, warn() {} };
+  await withServer(createSproutHandler({ llm: gemini(client), log, now: () => t }), async (base) => {
+    const res = await post(base, ask("hi"));
+    assert.equal(res.status, 503);
+    assert.deepEqual(await res.json(), { error: "Sprout is helping a lot of people right now. Please try again in a minute.", code: "daily_cap" });
+    assert.deepEqual(await (await fetch(`${base}/api/sprout/status`)).json(), { live: false });
+    // While paused, Gemini isn't called at all.
+    assert.equal((await post(base, ask("hi again"))).status, 503);
+    assert.equal(client.calls.length, 1);
+
+    t += 7_000;
+    assert.deepEqual(await (await fetch(`${base}/api/sprout/status`)).json(), { live: true });
+    const evs = await events(await post(base, ask("hello")));
+    assert.deepEqual(evs, [{ type: "text", text: "Back again." }, { type: "done" }]);
+  });
+});
+
+test("Gemini: a 429 after text has streamed ends the reply with the friendly busy message", async () => {
+  const client = fakeGemini([[chunk([{ text: "Let me check" }]), quotaError()]]);
+  await withServer(createSproutHandler({ llm: gemini(client), log: { info() {}, error() {}, warn() {} } }), async (base) => {
+    const evs = await events(await post(base, ask("hi")));
+    assert.deepEqual(evs, [
+      { type: "text", text: "Let me check" },
+      { type: "error", message: "Sprout is helping a lot of people right now. Please try again in a minute." },
+    ]);
+  });
+});
+
+test("Gemini: safety blocks end with the friendly redirect; other failures stay generic", async () => {
+  const client = fakeGemini([[usageChunk([], "SAFETY")], [{ promptFeedback: { blockReason: "PROHIBITED_CONTENT" } }], new ApiError({ status: 400, message: "bad request: internals" })]);
+  await withServer(createSproutHandler({ llm: gemini(client), log: quiet }), async (base) => {
+    for (let i = 0; i < 2; i += 1) {
+      const evs = await events(await post(base, ask("something odd")));
+      assert.equal(evs[0].type, "error");
+      assert.match(evs[0].message, /budget, debt, savings/);
+    }
+    assert.deepEqual(await events(await post(base, ask("hello"))), [{ type: "error", message: "Sprout couldn't answer just now. Please try again in a moment." }]);
+  });
+});
+
+test("Gemini usage counts toward the daily token cap", async () => {
+  const log = warnings();
+  const budget = createDailyBudget({ messageCap: 1000, tokenCap: 200, log });
+  const client = fakeGemini([[usageChunk([{ text: "a" }])], [usageChunk([{ text: "b" }])]]);
+  await withServer(createSproutHandler({ llm: gemini(client), budget, log }), async (base) => {
+    await (await post(base, ask("one"))).text(); // 100 in + 20 out
+    await (await post(base, ask("two"))).text(); // 240: over
+    assert.equal((await post(base, ask("three"))).status, 503);
+  });
+  assert.match(log.lines[0], /240\/200 tokens/);
+});
+
+test("retry delay is read from Gemini's RetryInfo", () => {
+  assert.equal(retryAfterSeconds(quotaError()), 7);
+  assert.equal(retryAfterSeconds(new Error("RESOURCE_EXHAUSTED")), null);
+});
+
+test("SPROUT_LLM_PROVIDER picks the provider; Gemini is the default", () => {
+  assert.equal(createLlm({ env: {} }), null, "no key: preview mode");
+  const g = createLlm({ env: { GEMINI_API_KEY: "test" } });
+  assert.deepEqual([g.name, g.model], ["gemini", "gemini-3.8-flash"]);
+  assert.equal(createLlm({ env: { GEMINI_API_KEY: "test", SPROUT_GEMINI_MODEL: "gemini-3.5-flash-lite" } }).model, "gemini-3.5-flash-lite");
+  assert.equal(createLlm({ env: { SPROUT_LLM_PROVIDER: "anthropic", GEMINI_API_KEY: "test" } }), null, "each provider needs its own key");
+  const a = createLlm({ env: { SPROUT_LLM_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "test" } });
+  assert.deepEqual([a.name, a.model], ["anthropic", "claude-sonnet-5-5"]);
+  assert.throws(() => createLlm({ env: { SPROUT_LLM_PROVIDER: "openai" } }), /must be one of gemini, anthropic/);
 });

@@ -263,17 +263,23 @@ test("all Sprout animations are switched off for reduced motion", () => {
   expect(block).toMatch(/\.sp-panel/);
 });
 
-test("no browser code references the Anthropic API key", () => {
+test("no browser code references a model API key", () => {
   const offenders = [];
   const walk = (dir) => {
     for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, f.name);
       if (f.isDirectory()) walk(p);
       else if (/\.(js|jsx|ts|tsx)$/.test(f.name) && !p.includes("__tests__")) {
-        if (/ANTHROPIC|REACT_APP_ANTHROPIC|sk-ant-/.test(fs.readFileSync(p, "utf8"))) offenders.push(p);
+        if (/ANTHROPIC|GEMINI_API_KEY|sk-ant-|AIza[0-9A-Za-z_-]{20}/.test(fs.readFileSync(p, "utf8"))) offenders.push(p);
       }
     }
   };
   walk(path.join(__dirname, "..", ".."));
   expect(offenders).toEqual([]);
+});
+
+test("the composer reminds people this is a demo AI", () => {
+  renderSprout();
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  expect(screen.getByText("Demo AI — don't enter real account details.")).toBeInTheDocument();
 });

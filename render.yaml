@@ -1,4 +1,4 @@
-# Render Blueprint for Sprout's API (the Claude-backed chat). The website itself stays on GitHub Pages.
+# Render Blueprint for Sprout's API (the Gemini-backed chat; Claude also supported). The website itself stays on GitHub Pages.
 # Setup steps: DEPLOY.md.
 services:
   - type: web
@@ -10,7 +10,7 @@ services:
     region: oregon
     branch: main
     rootDir: my-app
-    # Only the server's own dependencies (the Anthropic SDK); the React app isn't built here.
+    # Only the server's own dependencies (the Gemini and Anthropic SDKs); the React app isn't built here.
     buildCommand: npm ci --prefix server --no-audit --no-fund
     startCommand: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON server/index.mjs
     healthCheckPath: /healthz
@@ -25,10 +25,15 @@ services:
         - my-app/src/dashboard/summaries.js
         - my-app/src/design/format.js
     envVars:
-      - key: ANTHROPIC_API_KEY
+      # gemini (Google AI free tier) or anthropic. Switching to anthropic also needs ANTHROPIC_API_KEY (and optionally
+      # SPROUT_MODEL) added in the dashboard.
+      - key: SPROUT_LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
         sync: false # secret: you paste it in the Render dashboard
-      - key: SPROUT_MODEL
-        value: claude-sonnet-5-5
+      # A free-tier Flash model (ai.google.dev/gemini-api/docs/pricing). On the free tier Google may use prompts to improve its products.
+      - key: SPROUT_GEMINI_MODEL
+        value: gemini-3.8-flash
       - key: SPROUT_EFFORT
         value: low
       - key: SPROUT_ALLOWED_ORIGINS
@@ -37,6 +42,7 @@ services:
       - key: SPROUT_TRUST_PROXY
         value: "1"
       # Global safety net per UTC day; when either is used up the chat switches to preview replies until midnight UTC.
+      # Gemini's own free-tier quota (429) also switches to preview replies, for as long as Google says to wait.
       - key: SPROUT_DAILY_MESSAGE_CAP
         value: "300"
       - key: SPROUT_DAILY_TOKEN_CAP
