@@ -1,8 +1,8 @@
 // Plain-English sentences built from the plan's numbers. Pure, so every wording is tested.
 // Each sentence says which plan a date belongs to, and keeps the exact figures alongside for "Show the numbers".
 
-import { addMonths, simulatePayoff } from "./finance";
-import { money } from "../design/format";
+import { addMonths, simulatePayoff } from "./finance.js";
+import { money } from "../design/format.js";
 
 const NEVER = 600; // simulatePayoff stops here: the debt isn't paid off at this pace
 
