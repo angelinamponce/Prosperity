@@ -3,16 +3,19 @@
 //
 // Models are tried in order (SPROUT_GEMINI_MODELS). When one is overloaded (503 UNAVAILABLE) before it has sent
 // anything, it gets one more try after a short pause, then the next model takes over. A reply stays on the model that
-// answered its first round, because thought signatures from one model aren't valid on another. 429 (quota) never falls
-// back: it goes straight to preview mode. Overloaded requests can take minutes to fail, so each round gives up on
-// models that haven't started streaming after FIRST_OUTPUT_MS in total.
+// answered its first round, because thought signatures from one model aren't valid on another. A 429 (quota; free-tier
+// quotas are per model) also moves on to the next model, and the exhausted model is skipped by later requests until
+// Google's retry delay passes (60s if it gives none), or until midnight Pacific for a per-day quota. Preview mode only
+// happens when every model is exhausted or failing. Overloaded requests can take minutes to fail, so each round gives
+// up on models that haven't started streaming after FIRST_OUTPUT_MS in total.
 
 import { ApiError, GoogleGenAI } from "@google/genai";
 
-// Free-tier models as of 2026-10-26 (ai.google.dev/gemini-api/docs/pricing): the stable Flash, then Flash-Lite.
-export const DEFAULT_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash-lite"];
+// Free-tier models as of 2026-10-26 (ai.google.dev/gemini-api/docs/pricing): Flash-Lite (higher free limits), then Flash.
+export const DEFAULT_GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash"];
 export const FIRST_OUTPUT_MS = 20_000; // per round: from the first request to the first streamed chunk, across all tries
 export const RETRY_BACKOFF_MS = 1_000;
+export const QUOTA_SKIP_SECONDS = 60; // after a 429 that gives no retry delay
 
 const THINKING = { low: "LOW", medium: "MEDIUM", high: "HIGH" };
 // Finish reasons where Gemini declined to answer.
@@ -23,6 +26,14 @@ export class GeminiUnavailableError extends Error {
   constructor(tried, cause) {
     super(`Gemini unavailable (tried ${tried.join(", ")})`, { cause });
     this.tried = tried;
+  }
+}
+
+/** Every model in the chain has used up its quota. `retryAfter` = seconds until the first one is usable again. */
+export class GeminiExhaustedError extends Error {
+  constructor(models, retryAfter, cause) {
+    super(`Gemini quota used up on every model (${models.join(", ")})`, { cause });
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -38,8 +49,23 @@ export const parseModels = (value) => {
 
 /** Seconds Gemini asks us to wait after a 429, from the RetryInfo detail in the error message (null when absent). */
 export function retryAfterSeconds(err) {
+  if (err instanceof GeminiExhaustedError) return err.retryAfter;
   const m = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(String(err?.message ?? ""));
   return m ? Math.ceil(Number(m[1])) : null;
+}
+
+/** A per-day quota (for example quotaId "GenerateRequestsPerDayPerProjectPerModel-FreeTier"), not a per-minute one. */
+export const isDailyQuota = (err) => /PerDay|per[ _-]day|daily/i.test(String(err?.message ?? ""));
+
+/** The next midnight in America/Los_Angeles (when Gemini's daily quotas reset), as epoch ms. */
+export function nextPacificMidnight(nowMs) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hourCycle: "h23", hour: "numeric", minute: "numeric", second: "numeric" })
+      .formatToParts(new Date(nowMs))
+      .map((p) => [p.type, Number(p.value)])
+  );
+  const sinceMidnight = ((parts.hour * 60 + parts.minute) * 60 + parts.second) * 1000 + (nowMs % 1000);
+  return nowMs - sinceMidnight + 24 * 3600 * 1000;
 }
 
 const isQuota = (err) => (err instanceof ApiError && err.status === 429) || /RESOURCE_EXHAUSTED/.test(String(err?.message));
@@ -63,9 +89,23 @@ export function createGeminiProvider({
   firstOutputMs = FIRST_OUTPUT_MS,
   backoffMs = RETRY_BACKOFF_MS,
   client = apiKey ? createGeminiClient(apiKey) : null,
+  now = () => Date.now(),
+  log = console,
 } = {}) {
   if (!client) return null;
   let declarations = null;
+  // model → epoch ms until which it's skipped, after a 429. Shared by every visitor (one key, one quota).
+  const exhaustedUntil = new Map();
+  const isExhausted = (model) => (exhaustedUntil.get(model) ?? 0) > now();
+
+  function markExhausted(model, err) {
+    const daily = isDailyQuota(err);
+    const until = daily ? nextPacificMidnight(now()) : now() + (retryAfterSeconds(err) ?? QUOTA_SKIP_SECONDS) * 1000;
+    exhaustedUntil.set(model, until);
+    log.warn?.(
+      `[sprout] gemini 429 from ${model} (${daily ? "daily quota" : "rate limit"}); skipping it for ${Math.ceil((until - now()) / 1000)}s`
+    );
+  }
 
   /** One streamed request. Throws with `started` set once any chunk has arrived (too late to switch models). */
   async function streamOnce(model, { system, snapshot, tools, contents, lastRound, signal, onText, deadline }) {
@@ -151,7 +191,8 @@ export function createGeminiProvider({
     }),
 
     async turn({ history, signal, ...rest }) {
-      const candidates = history.model ? [history.model] : models;
+      // A reply's later rounds can't switch models; its first round tries every model that isn't exhausted.
+      const candidates = history.model ? [history.model] : models.filter((m) => !isExhausted(m));
       const deadline = Date.now() + firstOutputMs;
       let lastErr;
       for (const [i, model] of candidates.entries()) {
@@ -164,12 +205,26 @@ export function createGeminiProvider({
           try {
             return await streamOnce(model, { ...rest, contents: history.contents, signal, deadline: modelDeadline });
           } catch (err) {
-            if (err?.started || signal?.aborted || !(err?.overloaded || isOverloaded(err))) throw err;
+            // Too late to switch models (text already streamed, or a later round of the reply): a 429 is reported as busy.
+            const midReply = () => Object.assign(new Error("Gemini quota used up mid-reply", { cause: err }), { overloaded: true, started: true });
+            if (isQuota(err)) markExhausted(model, err);
+            if (err?.started || signal?.aborted) throw isQuota(err) ? midReply() : err;
+            if (isQuota(err)) {
+              if (history.model) throw midReply();
+              lastErr = err;
+              break; // no same-model retry: go to the next model
+            }
+            if (!(err?.overloaded || isOverloaded(err))) throw err;
             lastErr = err;
           }
         }
       }
-      throw new GeminiUnavailableError(candidates, lastErr);
+      // Every model is exhausted: preview mode until the first one is usable again. Otherwise some were just failing.
+      if (!history.model && models.every(isExhausted)) {
+        const soonest = Math.min(...models.map((m) => exhaustedUntil.get(m)));
+        throw new GeminiExhaustedError(models, Math.max(1, Math.ceil((soonest - now()) / 1000)), lastErr);
+      }
+      throw new GeminiUnavailableError(candidates.length ? candidates : models, lastErr);
     },
 
     // The model's turn unchanged, then one user turn with a functionResponse per call, in the same order.
@@ -190,14 +245,15 @@ export function createGeminiProvider({
     classifyError(err) {
       if (err?.name === "AbortError") return "aborted";
       // 429 RESOURCE_EXHAUSTED: the free tier's per-minute or per-day quota is used up.
-      if (isQuota(err)) return "quota";
+      if (err instanceof GeminiExhaustedError) return "quota";
       if (err instanceof GeminiUnavailableError) return "unavailable";
-      if ((err instanceof ApiError && err.status >= 500) || isOverloaded(err)) return "busy";
+      // A 5xx, or a 429 too late in the reply to switch models.
+      if ((err instanceof ApiError && err.status >= 500) || isOverloaded(err) || err?.overloaded || isQuota(err)) return "busy";
       return "other";
     },
 
     describeError: (err) =>
-      err instanceof GeminiUnavailableError
+      err instanceof GeminiUnavailableError || err instanceof GeminiExhaustedError
         ? `${err.message}: ${err.cause instanceof ApiError ? err.cause.status : err.cause?.message ?? "-"}`
         : err instanceof ApiError
           ? `${err.status} ${err.message.slice(0, 300)}`

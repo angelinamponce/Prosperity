@@ -6,7 +6,7 @@ import { ApiError } from "@google/genai";
 import { createDailyBudget } from "./budget.mjs";
 import { cleanMessages, clientIp, createSproutHandler } from "./chat.mjs";
 import { createAnthropicProvider } from "./llm/anthropic.mjs";
-import { createGeminiClient, createGeminiProvider, retryAfterSeconds } from "./llm/gemini.mjs";
+import { createGeminiClient, createGeminiProvider, nextPacificMidnight, retryAfterSeconds } from "./llm/gemini.mjs";
 import { createLlm } from "./llm/index.mjs";
 import { createRateLimiter } from "./rateLimit.mjs";
 import { sampleProfile } from "../src/dashboard/sampleProfile.js";
@@ -306,7 +306,7 @@ const usageChunk = (parts, finishReason = "STOP") => ({
   ...chunk(parts, { finishReason }),
   usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 15, thoughtsTokenCount: 5 },
 });
-const gemini = (client, opts = {}) => createGeminiProvider({ client, backoffMs: 0, ...opts });
+const gemini = (client, opts = {}) => createGeminiProvider({ client, backoffMs: 0, log: quiet, ...opts });
 const overloaded = () =>
   new ApiError({ status: 503, message: JSON.stringify({ error: { code: 503, message: "This model is currently experiencing high demand.", status: "UNAVAILABLE" } }) });
 /** A request that never answers until it's aborted (by the deadline or the user's Stop). */
@@ -332,7 +332,7 @@ test("Gemini: runs the debt tool server-side and sends the result back with the 
     assert.deepEqual(evs.slice(1), [{ type: "text", text: "You'd be " }, { type: "text", text: "debt-free soon." }, { type: "done" }]);
   });
   const [first, second] = client.calls;
-  assert.equal(first.model, "gemini-3.8-flash");
+  assert.equal(first.model, "gemini-3.5-flash-lite");
   assert.deepEqual(first.contents, [{ role: "user", parts: [{ text: "If I put $300 extra toward debt, when am I debt-free?" }] }]);
   assert.match(first.config.systemInstruction, /Never do financial arithmetic yourself/);
   assert.match(first.config.systemInstruction, /Credit card: balance \$3,200, 22\.9% APR/);
@@ -366,24 +366,105 @@ test("Gemini: after four calculator rounds, tool calls are switched off for the 
   assert.equal(client.calls[1].contents.at(-1).parts[0].functionResponse.id, undefined);
 });
 
-test("Gemini: 429 RESOURCE_EXHAUSTED becomes the preview-mode 503 and pauses live answers for the retry delay", async () => {
+const FIRST = "gemini-3.5-flash-lite";
+const SECOND = "gemini-3.8-flash";
+const dailyQuotaError = () =>
+  new ApiError({
+    status: 429,
+    message: JSON.stringify({
+      error: {
+        code: 429,
+        status: "RESOURCE_EXHAUSTED",
+        details: [{ "@type": "type.googleapis.com/google.rpc.QuotaFailure", violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier" }] }],
+      },
+    }),
+  });
+
+test("Gemini: a 429 on the first model is served by the next one, and the log names both", async () => {
+  const log = infoLog();
+  const client = fakeGemini([quotaError(), [usageChunk([{ text: "From Flash." }])]]);
+  await withServer(createSproutHandler({ llm: gemini(client, { log }), log }), async (base) => {
+    assert.deepEqual(await events(await post(base, ask("hi"))), [{ type: "text", text: "From Flash." }, { type: "done" }]);
+    // One model used up isn't a reason for preview mode.
+    assert.deepEqual(await (await fetch(`${base}/api/sprout/status`)).json(), { live: true });
+  });
+  assert.deepEqual(client.calls.map((c) => c.model), [FIRST, SECOND], "no same-model retry on a 429");
+  assert.ok(log.lines.includes(`[sprout] gemini 429 from ${FIRST} (rate limit); skipping it for 7s`), log.lines.join("\n"));
+  assert.match(log.lines.find((l) => l.includes("rounds=")), new RegExp(`model=${SECOND.replace(/\./g, "\\.")} rounds=1`));
+});
+
+test("Gemini: an exhausted model is skipped by the next requests until its retry delay passes", async () => {
   let t = 1_000_000;
-  const client = fakeGemini([quotaError(), [usageChunk([{ text: "Back again." }])]]);
-  const log = { info() {}, error() {}, warn() {} };
-  await withServer(createSproutHandler({ llm: gemini(client), log, now: () => t }), async (base) => {
+  const client = fakeGemini([quotaError(), [usageChunk([{ text: "one" }])], [usageChunk([{ text: "two" }])], [usageChunk([{ text: "three" }])]]);
+  await withServer(createSproutHandler({ llm: gemini(client, { now: () => t }), log: quiet, now: () => t }), async (base) => {
+    await (await post(base, ask("one"))).text();
+    t += 6_000;
+    await (await post(base, ask("two"))).text();
+    t += 1_000; // 7s: Google's retry delay has passed
+    await (await post(base, ask("three"))).text();
+  });
+  assert.deepEqual(client.calls.map((c) => c.model), [FIRST, SECOND, SECOND, FIRST]);
+});
+
+test("Gemini: a per-day quota skips that model until midnight Pacific", async () => {
+  let t = Date.UTC(2026, 9, 26, 20, 0); // 1pm PDT
+  const log = infoLog();
+  const client = fakeGemini([dailyQuotaError(), ...Array.from({ length: 3 }, () => [usageChunk([{ text: "ok" }])])]);
+  await withServer(createSproutHandler({ llm: gemini(client, { now: () => t, log }), log: quiet, now: () => t }), async (base) => {
+    await (await post(base, ask("one"))).text();
+    t = Date.UTC(2026, 9, 27, 6, 59); // 11:59pm PDT: still skipped
+    await (await post(base, ask("two"))).text();
+    t = Date.UTC(2026, 9, 27, 7, 0); // midnight PDT
+    await (await post(base, ask("three"))).text();
+  });
+  assert.deepEqual(client.calls.map((c) => c.model), [FIRST, SECOND, SECOND, FIRST]);
+  assert.ok(log.lines.includes(`[sprout] gemini 429 from ${FIRST} (daily quota); skipping it for 39600s`), log.lines.join("\n"));
+});
+
+test("midnight Pacific follows daylight saving time", () => {
+  assert.equal(nextPacificMidnight(Date.UTC(2026, 9, 26, 20, 0)), Date.UTC(2026, 9, 27, 7, 0)); // PDT
+  assert.equal(nextPacificMidnight(Date.UTC(2026, 11, 1, 9, 30)), Date.UTC(2026, 11, 2, 8, 0)); // PST, 1:30am
+  assert.equal(nextPacificMidnight(Date.UTC(2026, 11, 2, 7, 59)), Date.UTC(2026, 11, 2, 8, 0)); // 11:59pm PST
+});
+
+test("Gemini: when every model is out of quota the visitor gets the preview 503 until the first one frees up", async () => {
+  let t = 1_000_000;
+  const client = fakeGemini([quotaError(), quotaError(), [usageChunk([{ text: "Back again." }])]]);
+  await withServer(createSproutHandler({ llm: gemini(client, { now: () => t }), log: quiet, now: () => t }), async (base) => {
     const res = await post(base, ask("hi"));
     assert.equal(res.status, 503);
     assert.deepEqual(await res.json(), { error: "Sprout is helping a lot of people right now. Please try again in a minute.", code: "daily_cap" });
     assert.deepEqual(await (await fetch(`${base}/api/sprout/status`)).json(), { live: false });
-    // While paused, Gemini isn't called at all, and a 429 never falls back to the next model.
+    // While paused, Gemini isn't called at all.
     assert.equal((await post(base, ask("hi again"))).status, 503);
-    assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.8-flash"]);
+    assert.deepEqual(client.calls.map((c) => c.model), [FIRST, SECOND]);
 
     t += 7_000;
     assert.deepEqual(await (await fetch(`${base}/api/sprout/status`)).json(), { live: true });
-    const evs = await events(await post(base, ask("hello")));
-    assert.deepEqual(evs, [{ type: "text", text: "Back again." }, { type: "done" }]);
+    assert.deepEqual(await events(await post(base, ask("hello"))), [{ type: "text", text: "Back again." }, { type: "done" }]);
   });
+  assert.equal(client.calls.at(-1).model, FIRST);
+});
+
+test("Gemini: one model out of quota and the other overloaded still means preview, without pausing", async () => {
+  const client = fakeGemini([quotaError(), overloaded(), overloaded()]);
+  await withServer(createSproutHandler({ llm: gemini(client), log: quiet }), async (base) => {
+    const res = await post(base, ask("hi"));
+    assert.equal(res.status, 503);
+    assert.equal((await res.json()).code, "daily_cap");
+    assert.deepEqual(await (await fetch(`${base}/api/sprout/status`)).json(), { live: true });
+  });
+  assert.deepEqual(client.calls.map((c) => c.model), [FIRST, SECOND, SECOND]);
+});
+
+test("Gemini: a 429 in a later round of a reply doesn't switch models; it ends with the busy message", async () => {
+  const client = fakeGemini([[usageChunk([{ functionCall: { id: "c1", name: "get_plan_summary", args: {} } }])], quotaError()]);
+  await withServer(createSproutHandler({ llm: gemini(client), log: quiet }), async (base) => {
+    const evs = await events(await post(base, ask("How am I doing?")));
+    assert.equal(evs[0].type, "tool");
+    assert.deepEqual(evs.at(-1), { type: "error", message: "Sprout is helping a lot of people right now. Please try again in a minute." });
+  });
+  assert.deepEqual(client.calls.map((c) => c.model), [FIRST, FIRST]);
 });
 
 test("Gemini: a 429 after text has streamed ends the reply with the friendly busy message", async () => {
@@ -430,8 +511,8 @@ test("SPROUT_LLM_PROVIDER picks the provider; Gemini is the default", () => {
   assert.equal(createLlm({ env: {} }), null, "no key: preview mode");
   const g = createLlm({ env: { GEMINI_API_KEY: "test" } });
   assert.equal(g.name, "gemini");
-  assert.deepEqual(g.models, ["gemini-3.8-flash", "gemini-3.5-flash-lite"]);
-  assert.deepEqual(createLlm({ env: { GEMINI_API_KEY: "test", SPROUT_GEMINI_MODELS: " gemini-3.5-flash-lite, ,gemini-3.6-flash " } }).models, ["gemini-3.5-flash-lite", "gemini-3.6-flash"]);
+  assert.deepEqual(g.models, ["gemini-3.5-flash-lite", "gemini-3.8-flash"]);
+  assert.deepEqual(createLlm({ env: { GEMINI_API_KEY: "test", SPROUT_GEMINI_MODELS: " gemini-3.8-flash, ,gemini-3.6-flash " } }).models, ["gemini-3.8-flash", "gemini-3.6-flash"]);
   assert.equal(createLlm({ env: { SPROUT_LLM_PROVIDER: "anthropic", GEMINI_API_KEY: "test" } }), null, "each provider needs its own key");
   const a = createLlm({ env: { SPROUT_LLM_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "test" } });
   assert.deepEqual([a.name, a.model], ["anthropic", "claude-sonnet-5-5"]);
@@ -440,13 +521,13 @@ test("SPROUT_LLM_PROVIDER picks the provider; Gemini is the default", () => {
 
 test("Gemini: a 503 before anything streamed retries once, then the next model answers", async () => {
   const log = infoLog();
-  const client = fakeGemini([overloaded(), overloaded(), [usageChunk([{ text: "Hi from Flash-Lite." }])]]);
+  const client = fakeGemini([overloaded(), overloaded(), [usageChunk([{ text: "Hi from Flash." }])]]);
   await withServer(createSproutHandler({ llm: gemini(client), log }), async (base) => {
     const evs = await events(await post(base, ask("hi")));
-    assert.deepEqual(evs, [{ type: "text", text: "Hi from Flash-Lite." }, { type: "done" }]);
+    assert.deepEqual(evs, [{ type: "text", text: "Hi from Flash." }, { type: "done" }]);
   });
-  assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite"]);
-  assert.match(log.lines.find((l) => l.includes("rounds=")), /model=gemini-3\.5-flash-lite rounds=1/);
+  assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.5-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash"]);
+  assert.match(log.lines.find((l) => l.includes("rounds=")), /model=gemini-3\.8-flash rounds=1/);
 });
 
 test("Gemini: a retry on the same model can succeed without falling back", async () => {
@@ -454,7 +535,7 @@ test("Gemini: a retry on the same model can succeed without falling back", async
   await withServer(createSproutHandler({ llm: gemini(client), log: quiet }), async (base) => {
     assert.deepEqual(await events(await post(base, ask("hi"))), [{ type: "text", text: "Second try." }, { type: "done" }]);
   });
-  assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.8-flash", "gemini-3.8-flash"]);
+  assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.5-flash-lite", "gemini-3.5-flash-lite"]);
 });
 
 test("Gemini: when every model is overloaded the visitor gets the friendly 503 and preview replies", async () => {
@@ -468,7 +549,7 @@ test("Gemini: when every model is overloaded the visitor gets the friendly 503 a
     assert.deepEqual(await (await fetch(`${base}/api/sprout/status`)).json(), { live: true });
   });
   assert.equal(client.calls.length, 4);
-  assert.ok(log.lines.some((l) => /Gemini unavailable \(tried gemini-3\.8-flash, gemini-3\.5-flash-lite\): 503/.test(l)));
+  assert.ok(log.lines.some((l) => /Gemini unavailable \(tried gemini-3\.5-flash-lite, gemini-3\.8-flash\): 503/.test(l)));
 });
 
 test("Gemini: a request that doesn't start within the time limit counts as overloaded, and the wait is capped", async () => {
@@ -486,14 +567,14 @@ test("Gemini: later rounds of a reply stay on the model that answered the first"
   const client = fakeGemini([
     overloaded(),
     overloaded(),
-    [usageChunk([{ functionCall: { id: "c1", name: "get_plan_summary", args: {} }, thoughtSignature: "lite-sig" }])],
+    [usageChunk([{ functionCall: { id: "c1", name: "get_plan_summary", args: {} }, thoughtSignature: "flash-sig" }])],
     [usageChunk([{ text: "Here's your picture." }])],
   ]);
   await withServer(createSproutHandler({ llm: gemini(client), log: quiet }), async (base) => {
     const evs = await events(await post(base, ask("How am I doing?")));
     assert.deepEqual(evs.slice(-2), [{ type: "text", text: "Here's your picture." }, { type: "done" }]);
   });
-  assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash-lite"]);
+  assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.5-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.8-flash"]);
 });
 
 test("Gemini: a 503 after text has streamed doesn't switch models mid-answer", async () => {
@@ -514,17 +595,17 @@ test("the real Gemini SDK client makes one request per try (retrying is ours, no
     return new Response(JSON.stringify({ error: { code: 503, message: "high demand", status: "UNAVAILABLE" } }), { status: 503, headers: { "Content-Type": "application/json" } });
   };
   const client = createGeminiClient("test-key", fetch503);
-  await assert.rejects(client.models.generateContentStream({ model: "gemini-3.8-flash", contents: "hi" }), (err) => err.status === 503);
+  await assert.rejects(client.models.generateContentStream({ model: "gemini-3.5-flash-lite", contents: "hi" }), (err) => err.status === 503);
   assert.equal(requests, 1);
 });
 
 test("Gemini: a first model that hangs only uses its share of the time limit, then the next model answers", async () => {
-  const client = fakeGemini([hangs(), [usageChunk([{ text: "Flash-Lite here." }])]]);
+  const client = fakeGemini([hangs(), [usageChunk([{ text: "Flash here." }])]]);
   const started = Date.now();
   await withServer(createSproutHandler({ llm: gemini(client, { firstOutputMs: 400 }), log: quiet }), async (base) => {
-    assert.deepEqual(await events(await post(base, ask("hi"))), [{ type: "text", text: "Flash-Lite here." }, { type: "done" }]);
+    assert.deepEqual(await events(await post(base, ask("hi"))), [{ type: "text", text: "Flash here." }, { type: "done" }]);
   });
   const took = Date.now() - started;
   assert.ok(took >= 180 && took < 400, `the hanging model got about half the limit (took ${took}ms)`);
-  assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.8-flash", "gemini-3.5-flash-lite"]);
+  assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.5-flash-lite", "gemini-3.8-flash"]);
 });

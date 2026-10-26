@@ -237,7 +237,7 @@ export function createSproutHandler({
       } else if (kind === "quota") {
         const wait = llm.retryAfterSeconds?.(err) ?? QUOTA_PAUSE_SECONDS;
         quotaPausedUntil = now() + wait * 1000;
-        log.warn?.(`[sprout] ${llm.name} quota used up (429); preview mode for ${wait}s`);
+        log.warn?.(`[sprout] ${llm.describeError(err)}; preview mode for ${wait}s`);
         // Nothing streamed yet: the same 503 as a used-up daily cap, so the browser answers with preview replies.
         if (!res.headersSent) overQuota(res, cors);
         else send({ type: "error", message: FRIENDLY.busy });

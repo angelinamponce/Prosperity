@@ -1,12 +1,13 @@
 # Deploying Sprout's API
 
 The website stays on GitHub Pages. Sprout's chat API (`my-app/server`) runs on Render, set up from `render.yaml`.
-Sprout answers with Google Gemini on the free tier (`gemini-3.8-flash`, falling back to `gemini-3.5-flash-lite` when it's
-overloaded); Claude is still supported (see the end).
+Sprout answers with Google Gemini on the free tier (`gemini-3.5-flash-lite`, falling back to `gemini-3.8-flash` when it's
+overloaded or out of quota); Claude is still supported (see the end).
 
 Free-tier note: on Google's free tier, prompts and answers may be used to improve Google's products, which is why the chat
 says "Demo AI — don't enter real account details." The free tier also has per-minute and per-day request limits; when
-Gemini answers 429 (quota used up) the chat quietly switches to scripted preview replies until Google says to retry.
+a model answers 429 (quota used up) the next model takes over, and that model is skipped until Google says to retry
+(until midnight Pacific for a daily quota). Only when every model is used up does the chat switch to scripted preview replies.
 Until the API is reachable, the chat falls back to scripted preview replies on its own, so nothing breaks in between.
 
 ## 1. Put the code on `main`
@@ -65,7 +66,7 @@ after a quiet spell shows "Sprout is waking up…" for up to a minute (Free inst
 |---|---|---|
 | `SPROUT_LLM_PROVIDER` | `gemini` | `gemini` or `anthropic` |
 | `GEMINI_API_KEY` | (you paste it) | Secret, set only in the Render dashboard |
-| `SPROUT_GEMINI_MODELS` | `gemini-3.8-flash,gemini-3.5-flash-lite` | Tried in order. A model that's overloaded (503) gets one retry, then the next one answers; if none starts within about 20 seconds the chat uses preview replies. A 429 (quota) never falls back. Free-tier models: [pricing](https://ai.google.dev/gemini-api/docs/pricing) |
+| `SPROUT_GEMINI_MODELS` | `gemini-3.5-flash-lite,gemini-3.8-flash` | Tried in order. A model that's overloaded (503) gets one retry, then the next one answers; a model out of quota (429) is skipped until Google's retry time (or midnight Pacific for a daily quota). If none starts within about 20 seconds, or all are out of quota, the chat uses preview replies. Change it in `render.yaml`, not the dashboard, so a Blueprint sync keeps it. Free-tier models: [pricing](https://ai.google.dev/gemini-api/docs/pricing) |
 | `SPROUT_EFFORT` | `low` | Short chat answers (Gemini's thinking level, or Claude's effort) |
 | `SPROUT_ALLOWED_ORIGINS` | `https://angelinamponce.github.io` | The only site allowed to use the chat. In production, localhost and requests with no Origin header (curl, scripts) are refused |
 | `SPROUT_DAILY_MESSAGE_CAP` | `300` | Messages per UTC day across everyone |
@@ -82,8 +83,9 @@ Optional: `SPROUT_RATE_PER_MINUTE` (default 8) and `SPROUT_RATE_PER_DAY` (defaul
   is set, and that the Pages workflow ran after you set it. Open DevTools → Network and look for `/api/sprout/status`.
 - **Preview mode came back later in the day**: the daily cap was reached. The log says `daily cap reached`; it resets at
   midnight UTC (or on a restart). Raise `SPROUT_DAILY_MESSAGE_CAP` / `SPROUT_DAILY_TOKEN_CAP` under **Environment** if needed.
-  If the log says `gemini quota used up (429)` instead, Google's free-tier limit was hit; live answers come back after the
-  wait it names. Your limits are in AI Studio → **Rate limit**. A Flash-Lite model has higher free limits.
+  If the log says `Gemini quota used up on every model` instead, every model's free-tier limit was hit; live answers come
+  back when the first one frees up (lines like `gemini 429 from <model> (rate limit|daily quota); skipping it for Ns` say
+  which and for how long). Your limits are in AI Studio → **Rate limit**.
 - **Log says `Gemini unavailable (tried …)`**: every model in `SPROUT_GEMINI_MODELS` was overloaded or too slow to start,
   so that visitor got preview replies. It's Google's capacity, usually brief. Each answer's log line names the model that
   served it (`model=…`).
