@@ -1,5 +1,6 @@
 // POST /api/sprout/chat: streams Sprout's reply as server-sent events, running Prosperity's calculators as Claude tools.
 // GET /api/sprout/status: tells the browser whether the live assistant is available (no key means scripted preview mode).
+// GET /healthz: Render's health check, and the ping the chat sends on open to wake a sleeping free instance.
 //
 // Events (one JSON object per "data:" line), the same ones the scripted preview emits:
 //   { type: "text", text } | { type: "tool", name, label, summary } | { type: "done" } | { type: "error", message }
@@ -23,7 +24,10 @@ const FRIENDLY = {
   bad: "Sprout couldn't read that message. Please try again.",
   offline: "Sprout's live answers aren't turned on here yet.",
   refused: "Sprout can't help with that one. Try asking about your budget, debt, savings or investing.",
+  forbidden: "Sprout only answers questions from the Prosperity app.",
 };
+
+const LOCALHOST = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 class BadRequest extends Error {
   constructor(message, status = 400) {
@@ -73,9 +77,15 @@ function sendJson(res, status, body, headers = {}) {
   res.end(JSON.stringify(body));
 }
 
+// Behind Render's proxy the socket address is the proxy's. Cloudflare (in front of Render) overwrites CF-Connecting-IP,
+// so prefer it; X-Forwarded-For's first entry is the fallback.
 function clientIp(req, trustProxy) {
-  const fwd = trustProxy ? String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() : "";
-  return fwd || req.socket.remoteAddress || "unknown";
+  if (trustProxy) {
+    const cf = String(req.headers["cf-connecting-ip"] ?? "").trim();
+    const fwd = String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim();
+    if (cf || fwd) return cf || fwd;
+  }
+  return req.socket.remoteAddress || "unknown";
 }
 
 /**
@@ -88,6 +98,8 @@ export function createSproutHandler({
   effort = process.env.SPROUT_EFFORT || "low",
   allowedOrigins = (process.env.SPROUT_ALLOWED_ORIGINS || "").split(",").map((s) => s.trim()).filter(Boolean),
   trustProxy = process.env.SPROUT_TRUST_PROXY === "1",
+  // Local dev servers (any localhost port) may call the API too, but never in production.
+  allowLocalhost = process.env.NODE_ENV !== "production",
   limiter = createRateLimiter({
     perMinute: Number(process.env.SPROUT_RATE_PER_MINUTE) || 8,
     perDay: Number(process.env.SPROUT_RATE_PER_DAY) || 80,
@@ -220,20 +232,34 @@ export function createSproutHandler({
 
   return async function handle(req, res) {
     const url = new URL(req.url, "http://localhost");
-    if (!url.pathname.startsWith("/api/sprout/")) return false;
+
+    if (url.pathname !== "/healthz" && !url.pathname.startsWith("/api/sprout/")) return false;
 
     const origin = req.headers.origin;
-    const cors =
-      origin && allowedOrigins.includes(origin)
-        ? { "Access-Control-Allow-Origin": origin, Vary: "Origin", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" }
-        : {};
+    const originAllowed = Boolean(origin) && (allowedOrigins.includes(origin) || (allowLocalhost && LOCALHOST.test(origin)));
+    const cors = originAllowed
+      ? {
+          "Access-Control-Allow-Origin": origin,
+          Vary: "Origin",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Max-Age": "600",
+        }
+      : { Vary: "Origin" };
 
     if (req.method === "OPTIONS") {
-      res.writeHead(204, cors);
+      res.writeHead(originAllowed ? 204 : 403, cors);
       res.end();
+    } else if (url.pathname === "/healthz" && (req.method === "GET" || req.method === "HEAD")) {
+      sendJson(res, 200, { ok: true }, { ...cors, "Cache-Control": "no-store" });
     } else if (url.pathname === "/api/sprout/status" && req.method === "GET") {
       sendJson(res, 200, { live }, { ...cors, "Cache-Control": "no-store" });
     } else if (url.pathname === "/api/sprout/chat" && req.method === "POST") {
+      // Browsers on other sites can't use the API (and spend the key). Requests with no Origin (curl, the dev proxy) still face the rate limit.
+      if (origin && !originAllowed) {
+        sendJson(res, 403, { error: FRIENDLY.forbidden }, cors);
+        return true;
+      }
       try {
         await chat(req, res, cors);
       } catch (err) {

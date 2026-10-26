@@ -147,3 +147,56 @@ test("rate limiter allows again after a minute", () => {
   t = 61_000;
   assert.ok(lim.take("ip").ok);
 });
+
+const PAGES = "https://angelinamponce.github.io";
+const okClient = () => fakeClient(Array.from({ length: 5 }, () => ({ stop_reason: "end_turn", content: [{ type: "text", text: "ok" }] })));
+const fromOrigin = (base, origin, body = ask("hi")) =>
+  fetch(`${base}/api/sprout/chat`, { method: "POST", headers: { "Content-Type": "application/json", Origin: origin }, body: JSON.stringify(body) });
+
+test("/healthz answers 200 even without a key, for Render and the wake-up ping", async () => {
+  await withServer(createSproutHandler({ client: null, allowedOrigins: [PAGES], log: quiet }), async (base) => {
+    const res = await fetch(`${base}/healthz`, { headers: { Origin: PAGES } });
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { ok: true });
+    assert.equal(res.headers.get("access-control-allow-origin"), PAGES);
+  });
+});
+
+test("CORS: GitHub Pages is allowed, other sites are refused", async () => {
+  await withServer(createSproutHandler({ client: okClient(), allowedOrigins: [PAGES], allowLocalhost: false, log: quiet }), async (base) => {
+    const ok = await fromOrigin(base, PAGES);
+    assert.equal(ok.status, 200);
+    assert.equal(ok.headers.get("access-control-allow-origin"), PAGES);
+    await ok.text();
+
+    const evil = await fromOrigin(base, "https://evil.example");
+    assert.equal(evil.status, 403);
+    assert.equal(evil.headers.get("access-control-allow-origin"), null);
+
+    const preflight = (origin) =>
+      fetch(`${base}/api/sprout/chat`, { method: "OPTIONS", headers: { Origin: origin, "Access-Control-Request-Method": "POST" } });
+    assert.equal((await preflight(PAGES)).status, 204);
+    assert.equal((await preflight("https://evil.example")).status, 403);
+    // In production, localhost is just another foreign site.
+    assert.equal((await fromOrigin(base, "http://localhost:3000")).status, 403);
+  });
+});
+
+test("CORS: localhost on any port is allowed outside production", async () => {
+  await withServer(createSproutHandler({ client: okClient(), allowedOrigins: [PAGES], allowLocalhost: true, log: quiet }), async (base) => {
+    const res = await fromOrigin(base, "http://localhost:3000");
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("access-control-allow-origin"), "http://localhost:3000");
+    await res.text();
+  });
+});
+
+test("behind Render's proxy the rate limit keys on the visitor, not the proxy", async () => {
+  const limiter = createRateLimiter({ perMinute: 1, perDay: 100 });
+  await withServer(createSproutHandler({ client: okClient(), limiter, trustProxy: true, log: quiet }), async (base) => {
+    const as = (ip) => fetch(`${base}/api/sprout/chat`, { method: "POST", headers: { "CF-Connecting-IP": ip }, body: JSON.stringify(ask("hi")) });
+    assert.equal((await as("1.1.1.1")).status, 200);
+    assert.equal((await as("2.2.2.2")).status, 200);
+    assert.equal((await as("1.1.1.1")).status, 429);
+  });
+});
