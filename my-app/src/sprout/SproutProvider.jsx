@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { MAX_MESSAGE_LENGTH, checkSproutLive, streamSprout } from "./sproutClient";
+import { MAX_MESSAGE_LENGTH, checkSproutLive, streamSprout, wakeSprout } from "./sproutClient";
 
 const SproutContext = createContext(null);
 const HISTORY_SENT = 20; // only the most recent turns go to the server
+const WAKING_AFTER_MS = 3000; // no reply yet after this long: the server is probably waking up
 
 export function useSprout() {
   const ctx = useContext(SproutContext);
@@ -24,7 +25,7 @@ function loadHistory(key) {
  * Holds one Sprout conversation for this browser tab (kept in sessionStorage, never sent to our database).
  * getContext() returns the plan data sent with each question.
  */
-export function SproutProvider({ scope, getContext, getAccessToken, children }) {
+export function SproutProvider({ scope, getContext, getAccessToken, wakingAfterMs = WAKING_AFTER_MS, children }) {
   const storageKey = `prosperity.sprout.${scope}`;
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(() => loadHistory(storageKey));
@@ -48,13 +49,16 @@ export function SproutProvider({ scope, getContext, getAccessToken, children }) 
 
   useEffect(() => () => controller.current?.abort(), []);
 
+  // Opening the chat wakes the server (it may be asleep) and finds out whether live answers are available.
   useEffect(() => {
+    if (!open) return undefined;
     let alive = true;
+    wakeSprout();
     checkSproutLive().then((live) => alive && setMode(live ? "live" : "preview"));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [open]);
 
   const updateLast = (fn) =>
     setMessages((ms) => {
@@ -82,6 +86,11 @@ export function SproutProvider({ scope, getContext, getAccessToken, children }) 
 
       const ac = new AbortController();
       controller.current = ac;
+      // If nothing arrives for a few seconds, say the server is waking up instead of showing typing dots.
+      let heard = false;
+      const wakingTimer = setTimeout(() => {
+        if (!heard) updateLast((m) => (m.id === replyMsg.id ? { ...m, waking: true } : m));
+      }, wakingAfterMs);
       try {
         const accessToken = (await tokenRef.current?.()) ?? null;
         const live = await checkSproutLive();
@@ -92,9 +101,10 @@ export function SproutProvider({ scope, getContext, getAccessToken, children }) 
           accessToken,
           signal: ac.signal,
           onEvent: (ev) => {
-            if (ev.type === "text") updateLast((m) => ({ ...m, text: m.text + ev.text }));
-            else if (ev.type === "tool") updateLast((m) => ({ ...m, tools: [...m.tools, { name: ev.name, label: ev.label, summary: ev.summary }] }));
-            else if (ev.type === "error") updateLast((m) => ({ ...m, error: ev.message }));
+            heard = true;
+            if (ev.type === "text") updateLast((m) => ({ ...m, waking: false, text: m.text + ev.text }));
+            else if (ev.type === "tool") updateLast((m) => ({ ...m, waking: false, tools: [...m.tools, { name: ev.name, label: ev.label, summary: ev.summary }] }));
+            else if (ev.type === "error") updateLast((m) => ({ ...m, waking: false, error: ev.message }));
           },
         });
       } catch (err) {
@@ -102,13 +112,14 @@ export function SproutProvider({ scope, getContext, getAccessToken, children }) 
           updateLast((m) => ({ ...m, error: "Sprout couldn't answer just now. Please try again in a moment." }));
         }
       } finally {
-        updateLast((m) => ({ ...m, streaming: false, stopped: ac.signal.aborted && !m.error }));
+        clearTimeout(wakingTimer);
+        updateLast((m) => ({ ...m, streaming: false, waking: false, stopped: ac.signal.aborted && !m.error }));
         setStreaming(false);
         controller.current = null;
       }
       return true;
     },
-    [messages, streaming]
+    [messages, streaming, wakingAfterMs]
   );
 
   const stop = useCallback(() => controller.current?.abort(), []);

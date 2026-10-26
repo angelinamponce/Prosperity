@@ -183,6 +183,9 @@
 .sp-typing span:nth-child(2) { animation-delay: 0.15s; }
 .sp-typing span:nth-child(3) { animation-delay: 0.3s; }
 @keyframes sp-dot { 0%, 60%, 100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
+.sp-waking { display: block; color: var(--sp-ink-2); }
+.sp-waking__hint { display: block; margin-top: 2px; font-size: 0.75rem; color: var(--sp-ink-3); }
+
 .sp-error { font-size: 0.85rem; color: var(--sp-error); }
 .sp-link { border: 0; background: none; padding: 0; color: var(--sp-brand); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .sp-meta { margin: 0; font-size: 0.75rem; color: var(--sp-ink-3); }

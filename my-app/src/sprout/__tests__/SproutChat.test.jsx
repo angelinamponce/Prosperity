@@ -6,13 +6,13 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TextDecoder, TextEncoder } from "util";
 import { SproutChat, SproutLauncher, SproutMascot, SproutProvider, SuggestedQuestions, useSprout } from "..";
-import { resetSproutLiveCheck } from "../sproutClient";
+import { SERVER_TIMEOUT_MS, checkSproutLive, resetSproutLiveCheck, streamSprout } from "../sproutClient";
 
 const STARTERS = ["What's my debt-free date if I pay $200 more a month?"];
 
-function renderSprout(extra = null) {
+function renderSprout(extra = null, props = {}) {
   return render(
-    <SproutProvider scope={`test-${Math.random()}`} getContext={() => ({})}>
+    <SproutProvider scope={`test-${Math.random()}`} getContext={() => ({})} {...props}>
       <SproutLauncher />
       <SproutChat starters={STARTERS} />
       {extra}
@@ -27,12 +27,14 @@ beforeEach(() => {
 });
 
 /** Fakes the Sprout server: /status says live, /chat streams the given SSE events (or fails). */
-function fakeServer(chatEvents, { chatStatus = 200 } = {}) {
+function fakeServer(chatEvents, { chatStatus = 200, chatDelay = null } = {}) {
   global.TextDecoder = global.TextDecoder ?? TextDecoder;
   const calls = [];
   global.fetch = jest.fn(async (url, init) => {
     calls.push({ url, body: init?.body ? JSON.parse(init.body) : null });
+    if (url.endsWith("/healthz")) return { ok: true, json: async () => ({ ok: true }) };
     if (url.endsWith("/api/sprout/status")) return { ok: true, json: async () => ({ live: true }) };
+    if (chatDelay) await chatDelay;
     if (chatStatus !== 200) return { ok: false, status: chatStatus, json: async () => ({ error: "Sprout is helping a lot of people right now. Please try again in a minute." }) };
     const chunks = chatEvents.map((ev) => new TextEncoder().encode(`data: ${JSON.stringify(ev)}\n\n`));
     return { ok: true, body: { getReader: () => ({ read: async () => (chunks.length ? { value: chunks.shift(), done: false } : { done: true }) }) } };
@@ -174,6 +176,55 @@ test("the reset button clears the conversation", async () => {
   userEvent.click(screen.getByRole("button", { name: "Start a new conversation" }));
   expect(screen.queryByRole("list", { name: "Conversation with Sprout" })).not.toBeInTheDocument();
   expect(screen.getByText("Hi, I'm Sprout!")).toBeInTheDocument();
+});
+
+test("opening the chat pings /healthz to wake the server", async () => {
+  const calls = fakeServer([]);
+  renderSprout();
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  await waitFor(() => expect(calls.some((c) => c.url.endsWith("/healthz"))).toBe(true));
+});
+
+test("a slow first reply shows 'Sprout is waking up…' instead of typing dots, then the answer", async () => {
+  let wake;
+  fakeServer([{ type: "text", text: "Good morning!" }, { type: "done" }], { chatDelay: new Promise((r) => (wake = r)) });
+  renderSprout(null, { wakingAfterMs: 30 });
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  userEvent.type(screen.getByRole("textbox", { name: "Message Sprout" }), "hello{enter}");
+  expect(await screen.findByText("Sprout is waking up…")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Sprout is thinking")).not.toBeInTheDocument();
+  await act(async () => wake());
+  expect(await screen.findByText("Good morning!")).toBeInTheDocument();
+  expect(screen.queryByText("Sprout is waking up…")).not.toBeInTheDocument();
+});
+
+test("the first request waits at least 90 seconds, then gives a friendly timeout", async () => {
+  expect(SERVER_TIMEOUT_MS).toBeGreaterThanOrEqual(90_000);
+  // A server that never answers (but respects abort, like real fetch).
+  global.fetch = jest.fn((url, { signal }) => new Promise((_, reject) => signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))));
+  const events = [];
+  await streamSprout({ live: true, messages: [], onEvent: (e) => events.push(e), timeoutMs: 20 });
+  expect(events).toEqual([{ type: "error", message: "Sprout took too long to wake up. Please try again in a moment." }]);
+});
+
+test.each([
+  ["the network fails", () => Promise.reject(new TypeError("Failed to fetch"))],
+  ["the API URL returns 404 (GitHub Pages)", () => Promise.resolve({ ok: false, status: 404, json: async () => ({}) })],
+  ["the server has no key", () => Promise.resolve({ ok: true, json: async () => ({ live: false }) })],
+])("preview mode kicks in automatically when %s", async (_, respond) => {
+  global.fetch = jest.fn(respond);
+  renderSprout();
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  expect(await screen.findByText(/Preview mode: replies are scripted examples/)).toBeInTheDocument();
+  userEvent.type(screen.getByRole("textbox", { name: "Message Sprout" }), "hello{enter}");
+  const log = await screen.findByRole("list", { name: "Conversation with Sprout" });
+  await waitFor(() => expect(log).toHaveTextContent(/quick picture/), { timeout: 4000 });
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("a server that never answers the status check counts as unavailable", async () => {
+  global.fetch = jest.fn((url, { signal }) => new Promise((_, reject) => signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))));
+  await expect(checkSproutLive(20)).resolves.toBe(false);
 });
 
 test("mascot is decorative unless given a label", () => {

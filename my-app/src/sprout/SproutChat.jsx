@@ -51,6 +51,15 @@ function Typing() {
   );
 }
 
+function Waking() {
+  return (
+    <span className="sp-waking">
+      Sprout is waking up…
+      <span className="sp-waking__hint">This can take up to a minute the first time.</span>
+    </span>
+  );
+}
+
 function Message({ m, onRetry }) {
   if (m.role === "user") {
     return (
@@ -77,7 +86,7 @@ function Message({ m, onRetry }) {
           </ul>
         )}
         {(m.text || m.streaming) && (
-          <div className="sp-bubble">{m.text ? <RichText text={m.text} /> : <Typing />}</div>
+          <div className="sp-bubble">{m.text ? <RichText text={m.text} /> : m.waking ? <Waking /> : <Typing />}</div>
         )}
         {m.error && (
           <div className="sp-error" role="alert">
