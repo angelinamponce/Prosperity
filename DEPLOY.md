@@ -1,7 +1,8 @@
 # Deploying Sprout's API
 
 The website stays on GitHub Pages. Sprout's chat API (`my-app/server`) runs on Render, set up from `render.yaml`.
-Sprout answers with Google Gemini on the free tier (`gemini-3.8-flash`); Claude is still supported (see the end).
+Sprout answers with Google Gemini on the free tier (`gemini-3.8-flash`, falling back to `gemini-3.5-flash-lite` when it's
+overloaded); Claude is still supported (see the end).
 
 Free-tier note: on Google's free tier, prompts and answers may be used to improve Google's products, which is why the chat
 says "Demo AI — don't enter real account details." The free tier also has per-minute and per-day request limits; when
@@ -35,7 +36,7 @@ Check it in a browser:
 **Missed the key, or need to change it?** Open the service → **Environment** → find `GEMINI_API_KEY` (or **Add Environment Variable**) → paste → **Save, rebuild, and deploy**.
 
 **Already created the service back when it used Claude?** Render's Blueprint sync adds the new plain settings
-(`SPROUT_LLM_PROVIDER`, `SPROUT_GEMINI_MODEL`) but never asks for a new secret. Open the service → **Environment** →
+(`SPROUT_LLM_PROVIDER`, `SPROUT_GEMINI_MODELS`) but never asks for a new secret. Open the service → **Environment** →
 **Add Environment Variable** → `GEMINI_API_KEY` = your key → **Save, rebuild, and deploy**. You can then delete
 `ANTHROPIC_API_KEY` and `SPROUT_MODEL` there. Check `/api/sprout/status` again afterwards.
 
@@ -64,7 +65,7 @@ after a quiet spell shows "Sprout is waking up…" for up to a minute (Free inst
 |---|---|---|
 | `SPROUT_LLM_PROVIDER` | `gemini` | `gemini` or `anthropic` |
 | `GEMINI_API_KEY` | (you paste it) | Secret, set only in the Render dashboard |
-| `SPROUT_GEMINI_MODEL` | `gemini-3.8-flash` | Any free-tier Flash model, e.g. `gemini-3.5-flash-lite` for higher limits ([pricing](https://ai.google.dev/gemini-api/docs/pricing)) |
+| `SPROUT_GEMINI_MODELS` | `gemini-3.8-flash,gemini-3.5-flash-lite` | Tried in order. A model that's overloaded (503) gets one retry, then the next one answers; if none starts within about 20 seconds the chat uses preview replies. A 429 (quota) never falls back. Free-tier models: [pricing](https://ai.google.dev/gemini-api/docs/pricing) |
 | `SPROUT_EFFORT` | `low` | Short chat answers (Gemini's thinking level, or Claude's effort) |
 | `SPROUT_ALLOWED_ORIGINS` | `https://angelinamponce.github.io` | The only site allowed to use the chat. In production, localhost and requests with no Origin header (curl, scripts) are refused |
 | `SPROUT_DAILY_MESSAGE_CAP` | `300` | Messages per UTC day across everyone |
@@ -83,6 +84,9 @@ Optional: `SPROUT_RATE_PER_MINUTE` (default 8) and `SPROUT_RATE_PER_DAY` (defaul
   midnight UTC (or on a restart). Raise `SPROUT_DAILY_MESSAGE_CAP` / `SPROUT_DAILY_TOKEN_CAP` under **Environment** if needed.
   If the log says `gemini quota used up (429)` instead, Google's free-tier limit was hit; live answers come back after the
   wait it names. Your limits are in AI Studio → **Rate limit**. A Flash-Lite model has higher free limits.
+- **Log says `Gemini unavailable (tried …)`**: every model in `SPROUT_GEMINI_MODELS` was overloaded or too slow to start,
+  so that visitor got preview replies. It's Google's capacity, usually brief. Each answer's log line names the model that
+  served it (`model=…`).
 - **A CORS error in the browser console**: `SPROUT_ALLOWED_ORIGINS` must be exactly `https://angelinamponce.github.io` (no path, no trailing slash).
 - **Logs**: Render → service → **Logs**. Each answer logs the provider/model, its tools and token counts.
 

@@ -171,7 +171,7 @@ export function createSproutHandler({
     });
 
     const snapshot = snapshotBlock(planSnapshot(ctx));
-    const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, rounds: 0, tools: [] };
+    const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, rounds: 0, tools: [], served: new Set() };
     let wroteText = false;
 
     try {
@@ -195,6 +195,7 @@ export function createSproutHandler({
           },
         });
         usage.rounds += 1;
+        usage.served.add(turn.model);
         usage.input += turn.usage.input;
         usage.output += turn.usage.output;
         usage.cacheRead += turn.usage.cacheRead;
@@ -240,6 +241,11 @@ export function createSproutHandler({
         // Nothing streamed yet: the same 503 as a used-up daily cap, so the browser answers with preview replies.
         if (!res.headersSent) overQuota(res, cors);
         else send({ type: "error", message: FRIENDLY.busy });
+      } else if (kind === "unavailable") {
+        // Every model was overloaded (503) or too slow to start. Nothing streamed yet: preview replies, as for a quota.
+        log.warn?.(`[sprout] ${llm.describeError(err)}`);
+        if (!res.headersSent) overQuota(res, cors);
+        else send({ type: "error", message: FRIENDLY.busy });
       } else if (kind === "busy") {
         log.error("[sprout] upstream busy", err?.status);
         send({ type: "error", message: FRIENDLY.busy });
@@ -250,7 +256,7 @@ export function createSproutHandler({
     } finally {
       budget.addTokens(usage.input + usage.output + usage.cacheRead + usage.cacheWrite);
       log.info?.(
-        `[sprout] ${llm.name}/${llm.model} rounds=${usage.rounds} tools=${usage.tools.join(",") || "-"} in=${usage.input} cache_read=${usage.cacheRead} cache_write=${usage.cacheWrite} out=${usage.output}`
+        `[sprout] ${llm.name} model=${[...usage.served].join(",") || "-"} rounds=${usage.rounds} tools=${usage.tools.join(",") || "-"} in=${usage.input} cache_read=${usage.cacheRead} cache_write=${usage.cacheWrite} out=${usage.output}`
       );
       if (!res.headersSent && !res.writableEnded) openStream();
       res.end();

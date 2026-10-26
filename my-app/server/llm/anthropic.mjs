@@ -34,6 +34,8 @@ export function createAnthropicProvider({ apiKey, model = "claude-sonnet-5-5", e
       const message = await stream.finalMessage();
       const u = message.usage ?? {};
       return {
+        // With server-side fallback another Claude model may answer; message.model says which.
+        model: message.model ?? model,
         stop: message.stop_reason === "refusal" ? "refusal" : message.stop_reason === "max_tokens" ? "max_tokens" : "end",
         toolCalls: message.content.filter((b) => b.type === "tool_use").map((b) => ({ id: b.id, name: b.name, input: b.input })),
         usage: {

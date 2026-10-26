@@ -31,9 +31,10 @@ services:
         value: gemini
       - key: GEMINI_API_KEY
         sync: false # secret: you paste it in the Render dashboard
-      # A free-tier Flash model (ai.google.dev/gemini-api/docs/pricing). On the free tier Google may use prompts to improve its products.
-      - key: SPROUT_GEMINI_MODEL
-        value: gemini-3.8-flash
+      # Free-tier models tried in order (ai.google.dev/gemini-api/docs/pricing): when one is overloaded (503) the next
+      # answers. On the free tier Google may use prompts to improve its products.
+      - key: SPROUT_GEMINI_MODELS
+        value: gemini-3.8-flash,gemini-3.5-flash-lite
       - key: SPROUT_EFFORT
         value: low
       - key: SPROUT_ALLOWED_ORIGINS
