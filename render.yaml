@@ -36,7 +36,12 @@ services:
       # Render's proxy sits in front, so rate limits read the visitor's IP from its headers.
       - key: SPROUT_TRUST_PROXY
         value: "1"
-      # Production: localhost origins are refused.
+      # Global safety net per UTC day; when either is used up the chat switches to preview replies until midnight UTC.
+      - key: SPROUT_DAILY_MESSAGE_CAP
+        value: "300"
+      - key: SPROUT_DAILY_TOKEN_CAP
+        value: "1500000"
+      # Production: localhost origins and chat requests without an Origin header are refused.
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION

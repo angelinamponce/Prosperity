@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { test } from "node:test";
-import { cleanMessages, createSproutHandler } from "./chat.mjs";
+import { createDailyBudget } from "./budget.mjs";
+import { cleanMessages, clientIp, createSproutHandler } from "./chat.mjs";
 import { createRateLimiter } from "./rateLimit.mjs";
 import { sampleProfile } from "../src/dashboard/sampleProfile.js";
 
@@ -199,4 +200,70 @@ test("behind Render's proxy the rate limit keys on the visitor, not the proxy", 
     assert.equal((await as("2.2.2.2")).status, 200);
     assert.equal((await as("1.1.1.1")).status, 429);
   });
+});
+
+const warnings = () => {
+  const lines = [];
+  return { lines, info() {}, error() {}, warn: (l) => lines.push(l) };
+};
+
+test("daily message cap: once used up, chat gets the friendly 503 and status reports not live", async () => {
+  const log = warnings();
+  const budget = createDailyBudget({ messageCap: 2, tokenCap: 1e9, log });
+  await withServer(createSproutHandler({ client: okClient(), budget, log }), async (base) => {
+    assert.equal((await post(base, ask("one"))).status, 200);
+    assert.equal((await post(base, ask("two"))).status, 200);
+    const third = await post(base, ask("three"));
+    assert.equal(third.status, 503);
+    assert.deepEqual(await third.json(), { error: "Sprout's live answers are resting until tomorrow.", code: "daily_cap" });
+    assert.deepEqual(await (await fetch(`${base}/api/sprout/status`)).json(), { live: false });
+  });
+  assert.equal(log.lines.length, 1, "logs once when the cap trips");
+  assert.match(log.lines[0], /daily cap reached .*2\/2 messages/);
+});
+
+test("daily token cap: replies that use up the token budget trip it", async () => {
+  const log = warnings();
+  // Each fake reply reports 100 input + 20 output tokens.
+  const budget = createDailyBudget({ messageCap: 1000, tokenCap: 200, log });
+  await withServer(createSproutHandler({ client: okClient(), budget, log }), async (base) => {
+    await (await post(base, ask("one"))).text(); // 120 tokens
+    await (await post(base, ask("two"))).text(); // 240 tokens: over
+    assert.equal((await post(base, ask("three"))).status, 503);
+  });
+  assert.match(log.lines[0], /240\/200 tokens/);
+});
+
+test("daily caps reset at midnight UTC", () => {
+  let t = Date.UTC(2026, 9, 26, 23, 59);
+  const budget = createDailyBudget({ messageCap: 1, tokenCap: 100, now: () => t, log: warnings() });
+  assert.ok(budget.takeMessage());
+  assert.equal(budget.takeMessage(), false);
+  assert.ok(budget.exhausted());
+  t = Date.UTC(2026, 9, 27, 0, 0);
+  assert.equal(budget.exhausted(), false);
+  assert.ok(budget.takeMessage());
+});
+
+test("in production, chat without an Origin header is refused but health and status stay open", async () => {
+  await withServer(createSproutHandler({ client: okClient(), allowedOrigins: [PAGES], allowLocalhost: false, requireOrigin: true, log: quiet }), async (base) => {
+    const noOrigin = await post(base, ask("hi"));
+    assert.equal(noOrigin.status, 403);
+    assert.equal((await fetch(`${base}/healthz`)).status, 200);
+    assert.equal((await fetch(`${base}/api/sprout/status`)).status, 200);
+    const fromPages = await fromOrigin(base, PAGES);
+    assert.equal(fromPages.status, 200);
+    await fromPages.text();
+  });
+});
+
+test("rate-limit key: CF-Connecting-IP when it's a real IP, otherwise the socket address", () => {
+  const req = (cf) => ({ headers: cf === undefined ? {} : { "cf-connecting-ip": cf }, socket: { remoteAddress: "10.0.0.9" } });
+  assert.equal(clientIp(req("203.0.113.7"), true), "203.0.113.7");
+  assert.equal(clientIp(req("2001:db8::1"), true), "2001:db8::1");
+  assert.equal(clientIp(req(undefined), true), "10.0.0.9");
+  assert.equal(clientIp(req("not-an-ip"), true), "10.0.0.9");
+  assert.equal(clientIp(req("1.2.3.4, 5.6.7.8"), true), "10.0.0.9");
+  // Without a trusted proxy the header is ignored.
+  assert.equal(clientIp(req("203.0.113.7"), false), "10.0.0.9");
 });

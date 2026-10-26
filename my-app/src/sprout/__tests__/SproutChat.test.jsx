@@ -222,6 +222,23 @@ test.each([
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
+test("when the server's daily cap trips mid-visit, the chat switches to preview with a scripted reply", async () => {
+  global.fetch = jest.fn(async (url) => {
+    if (url.endsWith("/healthz")) return { ok: true, json: async () => ({ ok: true }) };
+    if (url.endsWith("/api/sprout/status")) return { ok: true, json: async () => ({ live: true }) };
+    return { ok: false, status: 503, json: async () => ({ error: "Sprout's live answers are resting until tomorrow.", code: "daily_cap" }) };
+  });
+  renderSprout();
+  userEvent.click(screen.getByRole("button", { name: /ask sprout/i }));
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(expect.stringMatching(/status$/), expect.anything()));
+  expect(screen.queryByText(/Preview mode/)).not.toBeInTheDocument();
+  userEvent.type(screen.getByRole("textbox", { name: "Message Sprout" }), "hello{enter}");
+  const log = await screen.findByRole("list", { name: "Conversation with Sprout" });
+  await waitFor(() => expect(log).toHaveTextContent(/quick picture/), { timeout: 4000 });
+  expect(screen.getByText(/Preview mode: replies are scripted examples/)).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
 test("a server that never answers the status check counts as unavailable", async () => {
   global.fetch = jest.fn((url, { signal }) => new Promise((_, reject) => signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))));
   await expect(checkSproutLive(20)).resolves.toBe(false);

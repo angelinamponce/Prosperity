@@ -102,7 +102,8 @@ export function SproutProvider({ scope, getContext, getAccessToken, wakingAfterM
           signal: ac.signal,
           onEvent: (ev) => {
             heard = true;
-            if (ev.type === "text") updateLast((m) => ({ ...m, waking: false, text: m.text + ev.text }));
+            if (ev.type === "mode") setMode(ev.mode);
+            else if (ev.type === "text") updateLast((m) => ({ ...m, waking: false, text: m.text + ev.text }));
             else if (ev.type === "tool") updateLast((m) => ({ ...m, waking: false, tools: [...m.tools, { name: ev.name, label: ev.label, summary: ev.summary }] }));
             else if (ev.type === "error") updateLast((m) => ({ ...m, waking: false, error: ev.message }));
           },

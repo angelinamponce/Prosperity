@@ -1,13 +1,16 @@
 // POST /api/sprout/chat: streams Sprout's reply as server-sent events, running Prosperity's calculators as Claude tools.
-// GET /api/sprout/status: tells the browser whether the live assistant is available (no key means scripted preview mode).
+// GET /api/sprout/status: tells the browser whether the live assistant is available (no key, or today's budget used up,
+// means scripted preview mode).
 // GET /healthz: Render's health check, and the ping the chat sends on open to wake a sleeping free instance.
 //
 // Events (one JSON object per "data:" line), the same ones the scripted preview emits:
 //   { type: "text", text } | { type: "tool", name, label, summary } | { type: "done" } | { type: "error", message }
 
+import { isIP } from "node:net";
 import Anthropic from "@anthropic-ai/sdk";
 import { TOOL_DEFS, planSnapshot, readContext, runTool, toolPill } from "../src/sprout/tools.js";
 import { SPROUT_SYSTEM, snapshotBlock } from "./prompts/sprout.mjs";
+import { createDailyBudget } from "./budget.mjs";
 import { createRateLimiter } from "./rateLimit.mjs";
 
 export const MAX_MESSAGE_LENGTH = 1000; // matches the chat box
@@ -23,6 +26,7 @@ const FRIENDLY = {
   tooLong: `Please keep your message under ${MAX_MESSAGE_LENGTH.toLocaleString("en-US")} characters.`,
   bad: "Sprout couldn't read that message. Please try again.",
   offline: "Sprout's live answers aren't turned on here yet.",
+  resting: "Sprout's live answers are resting until tomorrow.",
   refused: "Sprout can't help with that one. Try asking about your budget, debt, savings or investing.",
   forbidden: "Sprout only answers questions from the Prosperity app.",
 };
@@ -78,12 +82,11 @@ function sendJson(res, status, body, headers = {}) {
 }
 
 // Behind Render's proxy the socket address is the proxy's. Cloudflare (in front of Render) overwrites CF-Connecting-IP,
-// so prefer it; X-Forwarded-For's first entry is the fallback.
-function clientIp(req, trustProxy) {
+// so use it when it holds a real IP address; otherwise fall back to the socket address.
+export function clientIp(req, trustProxy) {
   if (trustProxy) {
     const cf = String(req.headers["cf-connecting-ip"] ?? "").trim();
-    const fwd = String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim();
-    if (cf || fwd) return cf || fwd;
+    if (isIP(cf)) return cf;
   }
   return req.socket.remoteAddress || "unknown";
 }
@@ -100,17 +103,28 @@ export function createSproutHandler({
   trustProxy = process.env.SPROUT_TRUST_PROXY === "1",
   // Local dev servers (any localhost port) may call the API too, but never in production.
   allowLocalhost = process.env.NODE_ENV !== "production",
+  // In production every chat request must come from an allowed site; scripts without an Origin header are refused.
+  requireOrigin = process.env.NODE_ENV === "production",
   limiter = createRateLimiter({
     perMinute: Number(process.env.SPROUT_RATE_PER_MINUTE) || 8,
     perDay: Number(process.env.SPROUT_RATE_PER_DAY) || 80,
   }),
   client = apiKey ? new Anthropic({ apiKey }) : null,
   log = console,
+  budget = createDailyBudget({
+    messageCap: Number(process.env.SPROUT_DAILY_MESSAGE_CAP) || 300,
+    tokenCap: Number(process.env.SPROUT_DAILY_TOKEN_CAP) || 1_500_000,
+    log,
+  }),
 } = {}) {
   const live = Boolean(client);
+  // The browser switches to scripted preview replies when it gets either of these.
+  const offline = (res, cors) => sendJson(res, 503, { error: FRIENDLY.offline, code: "not_configured" }, cors);
+  const resting = (res, cors) => sendJson(res, 503, { error: FRIENDLY.resting, code: "daily_cap" }, cors);
 
   async function chat(req, res, cors) {
-    if (!live) return sendJson(res, 503, { error: FRIENDLY.offline, code: "not_configured" }, cors);
+    if (!live) return offline(res, cors);
+    if (budget.exhausted()) return resting(res, cors);
     const gate = limiter.take(clientIp(req, trustProxy));
     if (!gate.ok) return sendJson(res, 429, { error: FRIENDLY.slowDown }, { ...cors, "Retry-After": String(gate.retryAfter) });
 
@@ -124,6 +138,7 @@ export function createSproutHandler({
       if (err instanceof BadRequest) return sendJson(res, err.status, { error: err.message }, cors);
       throw err;
     }
+    if (!budget.takeMessage()) return resting(res, cors);
 
     res.writeHead(200, {
       ...cors,
@@ -223,6 +238,7 @@ export function createSproutHandler({
         send({ type: "error", message: FRIENDLY.generic });
       }
     } finally {
+      budget.addTokens(usage.input + usage.output + usage.cacheRead + usage.cacheWrite);
       log.info?.(
         `[sprout] ${model} rounds=${usage.rounds} tools=${usage.tools.join(",") || "-"} in=${usage.input} cache_read=${usage.cacheRead} cache_write=${usage.cacheWrite} out=${usage.output}`
       );
@@ -253,10 +269,11 @@ export function createSproutHandler({
     } else if (url.pathname === "/healthz" && (req.method === "GET" || req.method === "HEAD")) {
       sendJson(res, 200, { ok: true }, { ...cors, "Cache-Control": "no-store" });
     } else if (url.pathname === "/api/sprout/status" && req.method === "GET") {
-      sendJson(res, 200, { live }, { ...cors, "Cache-Control": "no-store" });
+      sendJson(res, 200, { live: live && !budget.exhausted() }, { ...cors, "Cache-Control": "no-store" });
     } else if (url.pathname === "/api/sprout/chat" && req.method === "POST") {
-      // Browsers on other sites can't use the API (and spend the key). Requests with no Origin (curl, the dev proxy) still face the rate limit.
-      if (origin && !originAllowed) {
+      // Other sites can't use the API (and spend the key). In production, neither can scripts that send no Origin;
+      // in development those (curl, tests) are allowed and still face the rate limit.
+      if ((origin && !originAllowed) || (!origin && requireOrigin)) {
         sendJson(res, 403, { error: FRIENDLY.forbidden }, cors);
         return true;
       }

@@ -50,6 +50,7 @@ export function resetSproutLiveCheck() {
  *   { type: "text", text }                       a piece of the reply
  *   { type: "tool", name, label, summary }       a calculator Sprout ran, and its inputs
  *   { type: "done" } | { type: "error", message }
+ *   { type: "mode", mode: "preview" }            the server stopped live answers (no key, or today's cap used up)
  * With live false, plays the scripted preview replies instead.
  * The server gets `timeoutMs` to start answering (time to wake up); once the reply streams there's no limit.
  */
@@ -88,14 +89,20 @@ export async function streamSprout({ messages, context, accessToken, onEvent, si
     signal?.removeEventListener("abort", stopWithUser);
   }
   if (!res.ok || !res.body) {
-    let message = FRIENDLY_ERROR;
+    let body = {};
     try {
-      // The server only ever sends friendly wording here.
-      message = (await res.json()).error || message;
+      body = (await res.json()) ?? {};
     } catch {
       // Not JSON: keep the friendly default.
     }
-    onEvent({ type: "error", message });
+    // Live answers are off for now: switch to preview for the rest of this visit and answer this one with a script.
+    if (res.status === 503 && (body.code === "daily_cap" || body.code === "not_configured")) {
+      liveCheck = Promise.resolve(false);
+      onEvent({ type: "mode", mode: "preview" });
+      return mockStream({ messages, onEvent, signal });
+    }
+    // The server only ever sends friendly wording here.
+    onEvent({ type: "error", message: body.error || FRIENDLY_ERROR });
     return;
   }
 

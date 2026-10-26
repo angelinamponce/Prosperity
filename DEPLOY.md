@@ -52,7 +52,9 @@ after a quiet spell shows "Sprout is waking up…" for up to a minute (Free inst
 | `ANTHROPIC_API_KEY` | (you paste it) | Secret, set only in the Render dashboard |
 | `SPROUT_MODEL` | `claude-sonnet-5-5` | Change here or in the dashboard |
 | `SPROUT_EFFORT` | `low` | Short chat answers |
-| `SPROUT_ALLOWED_ORIGINS` | `https://angelinamponce.github.io` | The only site allowed to call the API (localhost is refused in production) |
+| `SPROUT_ALLOWED_ORIGINS` | `https://angelinamponce.github.io` | The only site allowed to use the chat. In production, localhost and requests with no Origin header (curl, scripts) are refused |
+| `SPROUT_DAILY_MESSAGE_CAP` | `300` | Messages per UTC day across everyone |
+| `SPROUT_DAILY_TOKEN_CAP` | `1500000` | Tokens per UTC day across everyone. Past either cap, the chat shows preview replies until midnight UTC |
 | `SPROUT_TRUST_PROXY` | `1` | Rate limits use the visitor's IP, not Render's proxy |
 | `NODE_ENV` | `production` | |
 | `NODE_VERSION` | `24` | |
@@ -63,5 +65,7 @@ Optional: `SPROUT_RATE_PER_MINUTE` (default 8) and `SPROUT_RATE_PER_DAY` (defaul
 
 - **Chat still says "Preview mode"**: check that `/api/sprout/status` says `live: true`, that the GitHub variable
   is set, and that the Pages workflow ran after you set it. Open DevTools → Network and look for `/api/sprout/status`.
+- **Preview mode came back later in the day**: the daily cap was reached. The log says `daily cap reached`; it resets at
+  midnight UTC (or on a restart). Raise `SPROUT_DAILY_MESSAGE_CAP` / `SPROUT_DAILY_TOKEN_CAP` under **Environment** if needed.
 - **A CORS error in the browser console**: `SPROUT_ALLOWED_ORIGINS` must be exactly `https://angelinamponce.github.io` (no path, no trailing slash).
 - **Logs**: Render → service → **Logs**. Each answer logs its tools and token counts, which is also how to check cost.
