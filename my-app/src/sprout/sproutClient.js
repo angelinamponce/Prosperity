@@ -8,12 +8,30 @@ const API_BASE = (process.env.REACT_APP_SPROUT_API_URL || "").replace(/\/$/, "")
 // REACT_APP_SPROUT_MOCK=1 forces the scripted preview even when a server is reachable.
 const FORCE_MOCK = process.env.REACT_APP_SPROUT_MOCK === "1";
 
-/** Whether to use the live server. */
+let liveCheck = null;
+
+/**
+ * Resolves true when the Sprout server is up and has an API key. Asked once per page load.
+ * Anything else (no server, as on GitHub Pages; no key; offline) means scripted preview mode.
+ */
 export function checkSproutLive() {
-  return Promise.resolve(!FORCE_MOCK && typeof fetch === "function");
+  if (FORCE_MOCK || typeof fetch !== "function") return Promise.resolve(false);
+  if (!liveCheck) {
+    const ac = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = setTimeout(() => ac?.abort(), 4000);
+    liveCheck = fetch(`${API_BASE}/api/sprout/status`, { signal: ac?.signal })
+      .then((res) => (res.ok ? res.json() : { live: false }))
+      .then((body) => body?.live === true)
+      .catch(() => false)
+      .finally(() => clearTimeout(timer));
+  }
+  return liveCheck;
 }
 
-export function resetSproutLiveCheck() {}
+/** For tests: forget the cached answer so the next check asks again. */
+export function resetSproutLiveCheck() {
+  liveCheck = null;
+}
 
 /**
  * Sends the conversation to Sprout and calls onEvent for each streamed event:
