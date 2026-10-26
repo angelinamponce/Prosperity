@@ -58,11 +58,16 @@ async function withServer(handler, fn) {
 const post = (base, body) =>
   fetch(`${base}/api/sprout/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
-const events = async (res) =>
-  (await res.text())
+/** The stream's events. `done` carries the serving model; tests that care read it from `served`. */
+const events = async (res) => {
+  const evs = (await res.text())
     .split("\n\n")
     .filter(Boolean)
     .map((b) => JSON.parse(b.replace(/^data: /, "")));
+  const done = evs.find((e) => e.type === "done");
+  const out = evs.map((e) => (e.type === "done" ? { type: "done" } : e));
+  return Object.defineProperty(out, "served", { value: done?.model }); // not enumerable, so deepEqual ignores it
+};
 
 const ask = (text) => ({ messages: [{ role: "user", content: text }], context: { profile: sampleProfile, plan: { extraDebt: 300, strategy: "avalanche" } } });
 
@@ -608,4 +613,15 @@ test("Gemini: a first model that hangs only uses its share of the time limit, th
   const took = Date.now() - started;
   assert.ok(took >= 180 && took < 400, `the hanging model got about half the limit (took ${took}ms)`);
   assert.deepEqual(client.calls.map((c) => c.model), ["gemini-3.5-flash-lite", "gemini-3.8-flash"]);
+});
+
+test("the done event names the model that served the reply", async () => {
+  const g = fakeGemini([overloaded(), overloaded(), [usageChunk([{ text: "Hi." }])]]);
+  await withServer(createSproutHandler({ llm: gemini(g), log: quiet }), async (base) => {
+    assert.equal((await events(await post(base, ask("hi")))).served, "gemini-3.8-flash");
+  });
+  const c = fakeClient([{ stop_reason: "end_turn", model: "claude-sonnet-5-5", content: [{ type: "text", text: "Hi." }] }]);
+  await withServer(createSproutHandler({ llm: claude(c), log: quiet }), async (base) => {
+    assert.equal((await events(await post(base, ask("hi")))).served, "claude-sonnet-5-5");
+  });
 });

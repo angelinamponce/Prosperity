@@ -5,7 +5,8 @@
 // GET /healthz: Render's health check, and the ping the chat sends on open to wake a sleeping free instance.
 //
 // Events (one JSON object per "data:" line), the same ones the scripted preview emits:
-//   { type: "text", text } | { type: "tool", name, label, summary } | { type: "done" } | { type: "error", message }
+//   { type: "text", text } | { type: "tool", name, label, summary } | { type: "done", model } | { type: "error", message }
+// (model = the model that served the reply; the browser ignores it)
 
 import { isIP } from "node:net";
 import { TOOL_DEFS, planSnapshot, readContext, runTool, toolPill } from "../src/sprout/tools.js";
@@ -229,7 +230,7 @@ export function createSproutHandler({
         });
         history = llm.withToolResults(history, turn, results);
       }
-      if (!abort.signal.aborted) send({ type: "done" });
+      if (!abort.signal.aborted) send({ type: "done", model: [...usage.served].join(",") });
     } catch (err) {
       const kind = abort.signal.aborted ? "aborted" : llm.classifyError(err);
       if (kind === "aborted") {
@@ -284,7 +285,8 @@ export function createSproutHandler({
       res.writeHead(originAllowed ? 204 : 403, cors);
       res.end();
     } else if (url.pathname === "/healthz" && (req.method === "GET" || req.method === "HEAD")) {
-      sendJson(res, 200, { ok: true }, { ...cors, "Cache-Control": "no-store" });
+      // version: the deployed commit on Render, to tell when a new deploy is live.
+      sendJson(res, 200, { ok: true, version: process.env.RENDER_GIT_COMMIT?.slice(0, 7) }, { ...cors, "Cache-Control": "no-store" });
     } else if (url.pathname === "/api/sprout/status" && req.method === "GET") {
       sendJson(res, 200, { live: live && !budget.exhausted() && !quotaPaused() }, { ...cors, "Cache-Control": "no-store" });
     } else if (url.pathname === "/api/sprout/chat" && req.method === "POST") {
